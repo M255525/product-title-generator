@@ -1051,8 +1051,9 @@
     lines.push('你是熟悉「' + PLATFORMS[platform].label + '」商品標題慣例的跨境電商顧問。以下 JSON 陣列每筆為 {index, titleEn, titleZh}，titleEn 為英文商品標題（依「規格詞＋功能詞＋形容詞＋核心關鍵詞」組成），titleZh 為對應中文標題。');
     lines.push('請針對每一筆做兩件事：');
     lines.push('1. 評估它在該平台上的關鍵字熱門搜尋程度與吸引力，給予 1~5 的星等（5 最高）與對應分級（5=S,4=A,3=B,2=C,1=D）。');
-    lines.push('2. 檢查 titleEn 是否合理通順——例如文法錯誤、單字重複（如同一個字出現兩次）、語意矛盾或搭配奇怪（例如尺寸詞跟包裝詞衝突）。若不合理，請直接在 revisedEn／revisedZh 給出修正後的英文／中文標題（盡量維持「規格詞＋功能詞＋形容詞＋核心關鍵詞」的結構與原意，只修正有問題的部分；若本來就合理，reasonable 填 true，revisedEn／revisedZh 可省略或留空）。');
-    lines.push('用不超過 20 字的中文簡短說明理由（若有調整標題，理由請說明調整了什麼）。');
+    lines.push('2. 檢查兩件事：(a) titleEn 本身是否合理通順——例如文法錯誤、單字重複（同一個字出現兩次）、語意矛盾或搭配奇怪（例如尺寸詞跟包裝詞衝突）；(b) titleZh 是否確實對應 titleEn 的意思（規格／功能／形容詞／核心關鍵詞語意是否一致，不可以牛頭不對馬嘴）。只要其中一項有問題，reasonable 就填 false。');
+    lines.push('3. reasonable 為 false 時，請同時提供 revisedEn 與 revisedZh 兩者，且兩者必須互相對應——即使原本只有一邊有問題，也要把沒問題的那一邊照原意重新給一次，確保 revisedEn 與 revisedZh 修正後彼此語意一致；若兩者本來就合理且互相對應，reasonable 填 true，revisedEn／revisedZh 可省略或留空。');
+    lines.push('用不超過 20 字的中文簡短說明理由（若有調整標題，理由請說明調整了什麼，包含是否為中英不對應）。');
     lines.push('請只輸出一個 JSON 陣列本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：');
     lines.push('[{"index":0,"stars":4,"tier":"A","reasonable":true,"revisedEn":"","revisedZh":"","reason":"..."}]');
     lines.push('');
@@ -1084,14 +1085,21 @@
         row.aiScored = true;
         applied++;
 
-        var revisedEn = String(item.revisedEn || '').trim();
-        if(item.reasonable === false && revisedEn && revisedEn !== row.en){
-          row.en = revisedEn;
+        // reasonable:false 可能只是英文合理但中文對不上（或反過來）——分別檢查
+        // revisedEn／revisedZh 各自是否「有給值且與現有內容不同」，不要求兩者都變才算調整，
+        // 否則「AI 只想修正中文、英文維持原樣」的情況會被完全忽略（曾經的真實 bug）
+        if(item.reasonable === false){
+          var revisedEn = String(item.revisedEn || '').trim();
           var revisedZh = String(item.revisedZh || '').trim();
-          if(revisedZh) row.zh = revisedZh;
-          row.aiAdjusted = true;
-          row.overLen = platform === 'amazon' && row.en.length > 200;
-          adjusted++;
+          var enChanged = revisedEn && revisedEn !== row.en;
+          var zhChanged = revisedZh && revisedZh !== row.zh;
+          if(enChanged || zhChanged){
+            if(enChanged) row.en = revisedEn;
+            if(zhChanged) row.zh = revisedZh;
+            row.aiAdjusted = true;
+            row.overLen = platform === 'amazon' && row.en.length > 200;
+            adjusted++;
+          }
         }
       });
       persistState();
