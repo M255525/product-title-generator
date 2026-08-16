@@ -23,8 +23,9 @@
 比照 `ai-image-prompt-studio`／`ai-prompt-generator`／`ai-music-prompt-studio` 的「單一工具、整個鎖住」模式：`#licenseGate` 全螢幕遮罩預設鎖定，驗證通過才加上 `.hidden`；載入時一律對後端即時重驗，背景每 20 分鐘重驗一次。`localStorage` key：`ptgSerial`。
 
 - **綁定的 Google Sheet 是使用者指定沿用的既有表**：<https://docs.google.com/spreadsheets/d/1pqGlCvUstowBzZh7J4xEa0jy3KoK4UeHUiyMTzcSGo4/edit>。`Code.gs` 採用 `ai-music-prompt-studio` 那套更保守的**雙層掃描**版本（`findLicenseSheet_()` 掃描 `ss.getSheets()` 每一個分頁＋`findHeaderRow_()` 在每個分頁裡找表頭列），不是 `ai-image-prompt-studio` 那個假設「表頭一定在第一分頁的 `values[0]`」的簡化版——因為這份既有 Sheet 的實際分頁/表頭位置在動工當下未知，用更保守的版本可以避免重踩 `ai-music-prompt-studio` 已經記錄過的坑（`server_error` 但訊息不明顯，容易被忽略）。
-- `LICENSE_CHECK_URL` 部署前為空字串，會顯示「尚未設定授權伺服器網址」的 fail-closed 訊息並停留在鎖定畫面；部署步驟見 `SETUP-授權伺服器設定.md`，部署走 clasp（不要建議複製貼上，已知的剪貼簿踩坑）。
+- **已於 2026-08-16 完成部署並端對端驗證**：`LICENSE_CHECK_URL` 已回填 `https://script.google.com/macros/s/AKfycbwYlSTK5tgPIQSB6e2eHgaP8Jc89ZKgyP_OYy9UHfAKZ-8RmKVGLZ-wJeyjr3l1blcz/exec`。GET 健康檢查與 POST 假序號（正確回傳 `serial_not_found`，證明找得到 Sheet 裡的表頭欄位）皆已用 Node `fetch()`／真實線上頁面測過。
 - **這支後端只做序號驗證，不代理任何付費 API**（LLM 串接是 BYOK），也**不處理跑馬燈**。
+- **部署踩坑**：clasp 沒有指令能把新腳本綁定到一個「已存在」的 Sheet——`clasp create --type sheets --parentId <既有SheetId>` 會把 `parentId` 當成 Drive 資料夾 id，平白新建一份空白試算表（已用 Drive MCP `trash_file` 清掉），**之後要幫其他專案接既有 Sheet 的 Apps Script，一律請使用者自己開 Extensions→Apps Script 建立綁定專案，把 Script ID 給 Claude 做 `clasp clone`/`push --force`**。使用者一開始手動複製貼上 Code.gs 到編輯器出現「Unexpected token 'finally'」（已知剪貼簿踩坑），改走 clasp 推送後，使用者瀏覽器分頁需要手動重新整理（F5）才會看到新內容，不會自動同步。第一次部署「誰可以存取」沒選對「任何人」，`curl -sI` 回 403、`curl -sL` 被導去 Google 登入頁；改對設定後重新部署會拿到**新的** `/exec` 網址（不是原本那組）。之後序號驗證連不上／一直失敗的報修，先檢查部署的存取權限設定，不要預設是程式碼問題。
 
 ## 頂部共用跑馬燈
 
@@ -56,4 +57,4 @@ node --check _check.js
 ## 本次未做（後續視需要再處理）
 
 - 桌面版 exe 未打包。
-- 根目錄 `專案目錄.docx` 尚未加入本專案的列。
+- Sheet 內尚未有真實序號可測試「解鎖成功＋剩餘天數顯示」這條路徑（目前只驗證過假序號的拒絕路徑）；要開放給使用者，直接到 Sheet 有「序號」欄的分頁新增一列，序號欄填值、開始/結束日期留空即可。
