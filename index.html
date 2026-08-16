@@ -171,6 +171,7 @@
   .tier-badge.tier-S{background:var(--gold-soft);color:var(--gold);}
   .tier-badge.tier-D{background:rgba(248,113,113,.12);color:var(--red);}
   .over-len{color:var(--red);font-weight:700;}
+  .adj-badge{color:var(--gold);font-size:11px;font-weight:700;cursor:help;}
   .empty-hint{font-size:12.5px;color:var(--text-faint);padding:10px 2px;}
 
   .img-upload{border:1px dashed var(--line);border-radius:8px;padding:16px;text-align:center;}
@@ -352,7 +353,7 @@
       <li>本工具依公開資訊整理 Amazon／Alibaba 的一般標題慣例（如 Amazon 避免主觀宣傳詞、Alibaba 允許批發／MOQ 用語）供參考，實際規則以各平台當下公告的政策為準，正式刊登前請自行確認。</li>
       <li>請勿在任何欄位或上傳圖片中包含真實個資、公司機密或受著作權保護的他人內容——欄位資料只存在你自己瀏覽器的 localStorage，不會上傳到任何伺服器，但送出給 AI 服務後的隱私仍由該服務條款規範。</li>
       <li>「AI 熱度評分」與「圖片分析」需要你自行填入 API 金鑰，該金鑰只存在你的瀏覽器，按下功能時會直接連線到你選擇的服務商，本工具不會經手或保存金鑰，也不會向你收取任何 API 費用——實際費用依你與該服務商的方案計算。</li>
-      <li>AI 產出的評分、關鍵字建議可能有誤，正式使用前請自行檢查；本工具與創作者不對後續實際上架成效負責。</li>
+      <li>AI 產出的評分、關鍵字建議可能有誤；「AI 熱度評分」在判斷標題不合理時會<strong>直接覆蓋修改該筆標題</strong>（表格會標示「✏️ AI 已調整標題」），正式使用前請自行檢查修改後的內容是否符合你的原意，本工具與創作者不對後續實際上架成效負責。</li>
       <li>僅供教學、課程及個人使用，禁止未經授權公開發布、販售或商業化使用。</li>
     </ul>
   </div>
@@ -904,9 +905,10 @@
       + '<th class="sortable-th" data-batch="' + batchKey + '">分級' + sortIndicator(dir) + '</th>'
       + '<th>拆解</th></tr>';
     var body = displayRows.map(function(r, i){
-      var titleCell = '<td class="en">' + escapeHtml(r.en) + (r.overLen ? '<br><span class="over-len">⚠ 超過建議長度</span>' : '') + '</td>';
-      var zhCell = '<td class="zh">' + escapeHtml(r.zh) + '</td>';
       var reasonTitle = r.aiReason ? ' title="' + escapeHtml(r.aiReason) + '"' : '';
+      var adjustedBadge = r.aiAdjusted ? '<br><span class="adj-badge"' + reasonTitle + '>✏️ AI 已調整標題</span>' : '';
+      var titleCell = '<td class="en">' + escapeHtml(r.en) + adjustedBadge + (r.overLen ? '<br><span class="over-len">⚠ 超過建議長度</span>' : '') + '</td>';
+      var zhCell = '<td class="zh">' + escapeHtml(r.zh) + '</td>';
       return '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + titleCell + zhCell
@@ -1041,13 +1043,18 @@
     return JSON.parse(cleaned);
   }
 
-  /* ---------- AI 熱度評分：單一批次一次呼叫，回傳每筆 {index,stars,tier,reason} ---------- */
+  /* ---------- AI 熱度評分：單一批次一次呼叫，同時檢查標題合理性（文法/用字是否通順），
+     不合理的標題請 AI 直接給出調整後版本，回傳每筆 {index,stars,tier,reason,reasonable,revisedEn,revisedZh} ---------- */
   function buildScorePrompt(rows, platform){
-    var list = rows.map(function(r, i){ return {index:i, title:r.en}; });
+    var list = rows.map(function(r, i){ return {index:i, titleEn:r.en, titleZh:r.zh}; });
     var lines = [];
-    lines.push('你是熟悉「' + PLATFORMS[platform].label + '」商品標題慣例的跨境電商顧問。以下 JSON 陣列每筆為 {index, title}，title 為英文商品標題。');
-    lines.push('請針對每一筆，評估它在該平台上的關鍵字熱門搜尋程度與吸引力，給予 1~5 的星等（5 最高）與對應分級（5=S,4=A,3=B,2=C,1=D），並用不超過 15 字的中文簡短說明理由。');
-    lines.push('請只輸出一個 JSON 陣列本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：[{"index":0,"stars":4,"tier":"A","reason":"..."}]');
+    lines.push('你是熟悉「' + PLATFORMS[platform].label + '」商品標題慣例的跨境電商顧問。以下 JSON 陣列每筆為 {index, titleEn, titleZh}，titleEn 為英文商品標題（依「規格詞＋功能詞＋形容詞＋核心關鍵詞」組成），titleZh 為對應中文標題。');
+    lines.push('請針對每一筆做兩件事：');
+    lines.push('1. 評估它在該平台上的關鍵字熱門搜尋程度與吸引力，給予 1~5 的星等（5 最高）與對應分級（5=S,4=A,3=B,2=C,1=D）。');
+    lines.push('2. 檢查 titleEn 是否合理通順——例如文法錯誤、單字重複（如同一個字出現兩次）、語意矛盾或搭配奇怪（例如尺寸詞跟包裝詞衝突）。若不合理，請直接在 revisedEn／revisedZh 給出修正後的英文／中文標題（盡量維持「規格詞＋功能詞＋形容詞＋核心關鍵詞」的結構與原意，只修正有問題的部分；若本來就合理，reasonable 填 true，revisedEn／revisedZh 可省略或留空）。');
+    lines.push('用不超過 20 字的中文簡短說明理由（若有調整標題，理由請說明調整了什麼）。');
+    lines.push('請只輸出一個 JSON 陣列本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：');
+    lines.push('[{"index":0,"stars":4,"tier":"A","reasonable":true,"revisedEn":"","revisedZh":"","reason":"..."}]');
     lines.push('');
     lines.push(JSON.stringify(list));
     return lines.join('\n');
@@ -1057,7 +1064,7 @@
     if(!validateAiCreds(creds, reportEl)) return;
     if(!rows.length){ reportEl.innerHTML = '<div class="bad">請先產生這批標題再評分</div>'; return; }
     persistApiConfig();
-    reportEl.innerHTML = '<div class="ok">呼叫 ' + AI_PROVIDERS[creds.provider].label + '（' + escapeHtml(creds.model) + '）評分 ' + rows.length + ' 組標題中，請稍候…</div>';
+    reportEl.innerHTML = '<div class="ok">呼叫 ' + AI_PROVIDERS[creds.provider].label + '（' + escapeHtml(creds.model) + '）評分並檢查 ' + rows.length + ' 組標題中，請稍候…</div>';
     try{
       var prompt = buildScorePrompt(rows, state.activePlatform);
       var raw = await callLLM(creds.provider, creds.model, creds.apiKey, prompt, function(attempt, status, waitSec){
@@ -1065,20 +1072,32 @@
       });
       var parsed = parseJsonLoose(raw);
       if(!Array.isArray(parsed)) throw new Error('AI 回應格式不是預期的 JSON 陣列');
-      var applied = 0;
+      var applied = 0, adjusted = 0;
+      var platform = state.activePlatform;
       parsed.forEach(function(item){
         var row = rows[item.index];
         if(!row) return;
         var stars = Math.max(1, Math.min(5, parseInt(item.stars, 10) || row.stars));
         row.stars = stars;
-        row.tier = item.tier && STAR_TIER[stars] ? STAR_TIER[stars] : (item.tier || STAR_TIER[stars]);
         row.tier = STAR_TIER[stars];
         row.aiReason = String(item.reason || '');
         row.aiScored = true;
         applied++;
+
+        var revisedEn = String(item.revisedEn || '').trim();
+        if(item.reasonable === false && revisedEn && revisedEn !== row.en){
+          row.en = revisedEn;
+          var revisedZh = String(item.revisedZh || '').trim();
+          if(revisedZh) row.zh = revisedZh;
+          row.aiAdjusted = true;
+          row.overLen = platform === 'amazon' && row.en.length > 200;
+          adjusted++;
+        }
       });
       persistState();
-      reportEl.innerHTML = '<div class="ok">已套用 AI 評分（' + applied + '／' + rows.length + ' 組），滑鼠移到分級標籤可看理由。</div>';
+      reportEl.innerHTML = '<div class="ok">已套用 AI 評分（' + applied + '／' + rows.length + ' 組）'
+        + (adjusted ? '，其中 ' + adjusted + ' 組標題經 AI 判斷不合理已自動調整' : '')
+        + '，滑鼠移到分級標籤可看理由。</div>';
     }catch(err){
       var msg;
       if(err.name === 'TimeoutError') msg = '請求逾時（180秒），請重試或換模型';
