@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跨境商品標題產生器 · Alibaba／Amazon</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --bg-alt:#0f1a2e;
+    --panel:#131f36;
+    --panel-raised:#182746;
+    --line:#22355c;
+    --line-soft:#1a2946;
+    --text:#e8edf8;
+    --text-dim:#a6b4d4;
+    --text-faint:#6c7ba3;
+    --accent:#3b82f6;
+    --accent-soft:rgba(59,130,246,0.14);
+    --accent-glow:rgba(59,130,246,0.5);
+    --teal:#2dd4bf;
+    --teal-soft:rgba(45,212,191,0.14);
+    --gold:#fbbf24;
+    --gold-soft:rgba(251,191,36,0.14);
+    --red:#f87171;
+    --font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --font-sans:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);line-height:1.65;min-height:100vh;
+    background-image:radial-gradient(circle at 1px 1px, rgba(59,130,246,0.08) 1px, transparent 0);
+    background-size:26px 26px;
+  }
+  a{color:var(--accent);}
+  ::selection{background:var(--accent);color:#04101f;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .btn{
+    font-family:var(--font-mono);font-size:13px;letter-spacing:.02em;
+    background:var(--panel-raised);color:var(--text);border:1px solid var(--line);
+    padding:9px 16px;border-radius:6px;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.primary{background:var(--accent);color:#04101f;border-color:var(--accent);font-weight:700;}
+  .btn.primary:hover{background:#60a5fa;color:#04101f;box-shadow:0 0 16px var(--accent-glow);}
+  .btn.teal{background:var(--teal);color:#052e2b;border-color:var(--teal);font-weight:700;}
+  .btn.teal:hover{background:#5eead4;box-shadow:0 0 16px rgba(45,212,191,.5);}
+  .btn.gold{background:var(--gold);color:#3a2704;border-color:var(--gold);font-weight:700;}
+  .btn.gold:hover{background:#fcd34d;box-shadow:0 0 16px rgba(251,191,36,.5);}
+  .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--line);color:var(--text);box-shadow:none;}
+
+  #marqueeBar{position:fixed;top:0;left:0;right:0;height:30px;background:var(--panel);border-bottom:1px solid var(--line);z-index:2100;overflow:hidden;display:none;align-items:center}
+  #marqueeBar.show{display:flex}
+  #marqueeTrack{display:inline-block;white-space:nowrap;padding-left:100%;font-size:13px;font-weight:600;color:var(--accent);animation:marquee-scroll 30s linear infinite}
+  body.has-marquee{padding-top:30px}
+  body.has-marquee .topbar{top:30px}
+  @keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  #licenseGate{position:fixed;inset:0;background:rgba(4,8,16,.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px}
+  #licenseGate.hidden{display:none}
+  .gate-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;width:420px;max-width:92vw;text-align:center}
+  .gate-logo{font-size:20px;font-weight:700;margin-bottom:8px}
+  .gate-logo span{color:var(--accent)}
+  .gate-desc{font-size:13px;color:var(--text-dim);margin-bottom:20px;line-height:1.7}
+  .gate-row{display:flex;gap:8px;margin-bottom:14px}
+  .gate-row input{flex:1;min-width:0}
+  .gate-row button{flex:none}
+  .gate-status{display:block;font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:8px;background:var(--bg);color:var(--text-dim)}
+  .gate-status.ok{background:var(--accent-soft);color:var(--accent)}
+  .gate-status.bad{background:rgba(248,113,113,.12);color:var(--red)}
+  .gate-status.pending{opacity:.85}
+  .license-badge{font-family:var(--font-mono);font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;background:var(--accent-soft);color:var(--accent);white-space:nowrap;}
+  .license-badge.warn{background:var(--gold-soft);color:var(--gold);}
+
+  input[type=text], input[type=password], input[type=number], textarea, select{
+    width:100%;background:var(--bg-alt);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:10px 12px;font-family:var(--font-sans);font-size:14px;
+  }
+  textarea{min-height:70px;resize:vertical;line-height:1.6;}
+  input:focus, textarea:focus, select:focus{border-color:var(--accent);}
+
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;padding:16px 24px;gap:10px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line-soft);background:linear-gradient(180deg, var(--bg-alt), var(--bg));
+    position:sticky;top:0;z-index:20;backdrop-filter:blur(6px);
+  }
+  .topbar > div{flex-wrap:wrap;row-gap:8px;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-mono);letter-spacing:.04em;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent-glow);}
+  .brand strong{font-size:15px;font-weight:700;}
+  .topbar nav a{font-family:var(--font-mono);font-size:13px;color:var(--text-dim);text-decoration:none;border:1px solid var(--line);padding:7px 14px;border-radius:6px;transition:.15s;}
+  .topbar nav a:hover{color:var(--accent);border-color:var(--accent);}
+
+  .hero{padding:44px 24px 28px;text-align:center;border-bottom:1px solid var(--line-soft);background:linear-gradient(180deg, var(--bg-alt), var(--bg));}
+  .hero .eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.3em;color:var(--text-faint);text-transform:uppercase;margin-bottom:14px;}
+  .hero h1{font-size:clamp(24px,4.2vw,36px);margin:0 0 12px;font-weight:800;letter-spacing:-.01em;}
+  .hero h1 .accent{color:var(--accent);}
+  .hero p.lead{max-width:640px;margin:0 auto 22px;color:var(--text-dim);font-size:15px;}
+
+  .type-tabs{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;max-width:820px;margin:0 auto;}
+  .type-tab{
+    font-family:var(--font-mono);font-size:13px;background:var(--panel);color:var(--text-dim);
+    border:1px solid var(--line);padding:10px 18px;border-radius:8px;cursor:pointer;transition:.15s;text-align:left;
+  }
+  .type-tab .tt-en{display:block;font-size:11px;color:var(--text-faint);letter-spacing:.06em;}
+  .type-tab .tt-zh{display:block;font-weight:700;color:var(--text);margin-top:2px;}
+  .type-tab:hover{border-color:var(--accent);}
+  .type-tab.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent-soft);}
+  .type-tab.active .tt-zh{color:var(--accent);}
+
+  main{max-width:960px;margin:0 auto;padding:32px 20px 60px;display:flex;flex-direction:column;gap:22px;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .panel-title{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;}
+  .panel-title .badge{
+    width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:13px;font-weight:800;
+  }
+  .panel-hint{font-size:12.5px;color:var(--text-faint);margin:0 0 16px;}
+  .ai-panel{border-color:rgba(45,212,191,.35);}
+  .ai-panel .panel-title .badge{background:var(--teal-soft);color:var(--teal);}
+  .image-panel{border-color:rgba(251,191,36,.35);}
+  .image-panel .panel-title .badge{background:var(--gold-soft);color:var(--gold);}
+
+  .preset-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .preset-row label{font-family:var(--font-mono);font-size:12px;color:var(--text-faint);}
+  .preset-row select{flex:1;min-width:180px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:700;color:var(--text-dim);margin-bottom:6px;}
+  .field .field-hint{font-size:12px;color:var(--text-faint);margin:4px 0 0;}
+  .field-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+
+  .output-actions{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;}
+  .api-settings{margin-bottom:14px;}
+  .api-settings summary{cursor:pointer;font-family:var(--font-mono);font-size:12.5px;color:var(--text-dim);}
+  .api-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .api-grid label{grid-column:span 1;font-size:12px;color:var(--text-faint);display:block;}
+  .api-grid label.full{grid-column:1 / -1;}
+  .api-note{font-size:11.5px;color:var(--text-faint);margin-top:8px;line-height:1.6;}
+  .ai-report{margin-top:10px;font-size:12.5px;}
+  .ai-report .ok{color:var(--teal);}
+  .ai-report .warn{color:#facc15;}
+  .ai-report .bad{color:var(--red);}
+
+  .table-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:8px;margin-top:14px;}
+  table.titles{width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px;}
+  table.titles th{background:var(--bg-alt);color:var(--text-faint);font-family:var(--font-mono);font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  table.titles td{padding:8px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  table.titles tr:last-child td{border-bottom:none;}
+  table.titles td.en{font-weight:600;}
+  table.titles td.zh{color:var(--text-dim);}
+  td.tags span{display:inline-block;font-family:var(--font-mono);font-size:10.5px;background:var(--panel-raised);color:var(--text-faint);border:1px solid var(--line);padding:2px 6px;border-radius:5px;margin:0 3px 3px 0;}
+  .stars{color:var(--gold);letter-spacing:1px;white-space:nowrap;}
+  .stars .empty{color:var(--line);}
+  .tier-badge{font-family:var(--font-mono);font-weight:800;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);}
+  .tier-badge.tier-S{background:var(--gold-soft);color:var(--gold);}
+  .tier-badge.tier-D{background:rgba(248,113,113,.12);color:var(--red);}
+  .over-len{color:var(--red);font-weight:700;}
+  .empty-hint{font-size:12.5px;color:var(--text-faint);padding:10px 2px;}
+
+  .img-upload{border:1px dashed var(--line);border-radius:8px;padding:16px;text-align:center;}
+  .img-upload input{display:none;}
+  .img-preview{max-width:220px;max-height:220px;border-radius:8px;margin:12px auto 0;display:block;border:1px solid var(--line);}
+  .suggest-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12.5px;background:var(--panel-raised);color:var(--text-dim);border:1px solid var(--line);padding:6px 12px;border-radius:20px;cursor:pointer;margin:0 8px 8px 0;transition:.15s;}
+  .suggest-pill:hover{border-color:var(--gold);color:var(--gold);}
+  .suggest-note{display:inline-block;font-family:var(--font-mono);font-size:12px;background:var(--bg-alt);color:var(--text-dim);border:1px solid var(--line-soft);padding:6px 12px;border-radius:20px;margin:0 8px 8px 0;}
+
+  footer{max-width:960px;margin:0 auto;padding:0 20px 50px;}
+  .warn-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;font-size:12.5px;color:var(--text-dim);}
+  .warn-box strong{color:var(--text);display:block;margin-bottom:8px;font-size:13px;}
+  .warn-box ul{margin:0;padding-left:18px;}
+  .warn-box li{margin-bottom:5px;}
+  .footer-meta{max-width:960px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--text-faint);font-family:var(--font-mono);}
+  .footer-meta a{color:var(--text-dim);}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--panel-raised);border:1px solid var(--accent);color:var(--text);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:3000;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+
+  @media (max-width:900px){ main{padding:26px 16px 50px;} .panel{padding:18px;} }
+  @media (max-width:600px){
+    .api-grid{grid-template-columns:1fr;}
+    .field-grid{grid-template-columns:1fr;}
+    .type-tabs{flex-direction:column;align-items:stretch;}
+    .hero{padding:32px 18px 22px;}
+    .panel{padding:15px;}
+    .btn{padding:11px 18px;min-height:44px;}
+    #btnGateToggle{min-width:44px;}
+    .output-actions{gap:10px;}
+    .output-actions .btn{flex:1 1 auto;}
+    .type-tab{min-height:44px;}
+    .suggest-pill, .suggest-note{padding:8px 13px;min-height:38px;}
+    .preset-row{flex-direction:column;align-items:stretch;}
+    .preset-row select, .preset-row .btn{width:100%;}
+    table.titles{font-size:11.5px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="marqueeBar"><div id="marqueeTrack"></div></div>
+
+<div id="licenseGate">
+  <div class="gate-box">
+    <div class="gate-logo">🏷 <span>跨境商品標題產生器</span></div>
+    <div class="gate-desc">本工具需輸入授權序號並按「確認」驗證通過後才能使用。序號自第一次驗證起提供 12 個月使用期限。</div>
+    <div class="gate-row">
+      <input type="password" id="gateSerial" placeholder="請輸入授權序號" autocomplete="off">
+      <button type="button" class="btn" id="btnGateToggle" title="顯示／隱藏序號" aria-label="顯示／隱藏序號">👁</button>
+    </div>
+    <button type="button" class="btn primary" id="btnGateConfirm" style="width:100%;margin-bottom:12px">確認</button>
+    <span id="gateStatus" class="gate-status pending">尚未驗證</span>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span><strong>跨境商品標題產生器</strong></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="licenseBadge" class="license-badge" style="display:none;"></span>
+    <nav><a href="manual.html">操作手冊</a></nav>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="eyebrow">PRODUCT TITLE GENERATOR</div>
+  <h1>一個核心關鍵詞，<span class="accent">組出上百組跨境電商標題</span></h1>
+  <p class="lead">依「規格詞＋功能詞＋形容詞＋商品核心關鍵詞」結構，一次產生 50 組不重複標題＋另 50 組中英對照熱門優先標題，並依 Alibaba／Amazon 平台規則自動套用不同用字。</p>
+  <div class="type-tabs" id="platformTabs"></div>
+</div>
+
+<main>
+
+  <section class="panel" id="fieldPanel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">✎</span>商品資訊設定</div>
+    </div>
+
+    <div class="preset-row">
+      <label for="presetSelect">套用範例</label>
+      <select id="presetSelect"><option value="">— 選擇一個情境快速開始 —</option></select>
+      <button class="btn ghost" id="clearBtn" type="button">清空欄位</button>
+    </div>
+
+    <div class="field-grid">
+      <div class="field"><label for="f_coreEn">核心關鍵詞（英文，必填）</label><input type="text" id="f_coreEn" placeholder="例：green tea powder"></div>
+      <div class="field"><label for="f_coreZh">核心關鍵詞（中文，選填）</label><input type="text" id="f_coreZh" placeholder="例：抹茶粉"></div>
+    </div>
+
+    <div class="field">
+      <label for="f_synonyms">同義詞／相關詞（選填，每行一個，僅用於第一批增加變化）</label>
+      <textarea id="f_synonyms" placeholder="例：&#10;matcha powder&#10;green tea extract powder"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="f_spectype">規格類型</label>
+      <select id="f_spectype">
+        <option value="mixed">混合（重量／數量／尺寸皆抽）</option>
+        <option value="weight">重量（例：200g／1kg）</option>
+        <option value="count">數量／包裝（例：Pack of 6）</option>
+        <option value="size">尺寸（例：Compact／XL）</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="panel" id="batch1Panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">①</span>第一批 50 組（隨機不重複）</div>
+    </div>
+    <p class="panel-hint">依目前平台與規格類型，隨機組合「規格詞＋功能詞＋形容詞＋核心關鍵詞（含同義詞）」，去重後湊滿 50 組。星等為離線參考分數，可另外呼叫 AI 即時評分覆蓋。</p>
+    <div class="output-actions">
+      <button class="btn primary" id="genBatch1Btn" type="button">🎲 產生第一批 50 組</button>
+      <button class="btn teal" id="aiScoreBatch1Btn" type="button">🚀 AI 熱度評分（此批）</button>
+    </div>
+    <div id="batch1Report" class="ai-report" aria-live="polite"></div>
+    <div id="batch1TableWrap"></div>
+  </section>
+
+  <section class="panel" id="batch2Panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">②</span>第二批 50 組（熱度優先＋中英對照）</div>
+    </div>
+    <p class="panel-hint">依詞庫熱度分數加權抽樣，優先組合分數較高的詞彙（與第一批不重複），同時輸出中文標題供語意核對。</p>
+    <div class="output-actions">
+      <button class="btn primary" id="genBatch2Btn" type="button">🔥 產生第二批 50 組</button>
+      <button class="btn teal" id="aiScoreBatch2Btn" type="button">🚀 AI 熱度評分（此批）</button>
+    </div>
+    <div id="batch2Report" class="ai-report" aria-live="polite"></div>
+    <div id="batch2TableWrap"></div>
+  </section>
+
+  <section class="panel image-panel" id="imagePanel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">🖼</span>上傳圖片取得標題建議字（選用，需 BYOK）</div>
+    </div>
+    <p class="panel-hint">上傳商品照片，串接下方的語言模型分析圖片內容，建議可用於核心關鍵詞的候選詞（中英對照），以及僅供參考的賣點／情境形容詞建議。</p>
+    <div class="img-upload">
+      <label class="btn ghost" for="imageInput" style="display:inline-block;">選擇圖片</label>
+      <input type="file" id="imageInput" accept="image/*">
+      <img id="imagePreview" class="img-preview" style="display:none;">
+    </div>
+    <div class="output-actions" style="margin-top:14px;">
+      <button class="btn gold" id="analyzeImageBtn" type="button">🔍 分析圖片建議關鍵字</button>
+    </div>
+    <div id="imageReport" class="ai-report" aria-live="polite"></div>
+    <div id="imageSuggestions" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="panel ai-panel" id="apiPanel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">AI</span>API 連線設定（AI 熱度評分／圖片分析共用）</div>
+    </div>
+    <details class="api-settings" open>
+      <summary>API 連線設定</summary>
+      <div class="api-grid">
+        <label>服務商
+          <select id="aiProvider"></select>
+        </label>
+        <label>模型
+          <input type="text" id="aiModel" placeholder="模型名稱">
+        </label>
+        <label class="full">API 金鑰
+          <input type="password" id="aiKey" placeholder="貼上你的 API Key" autocomplete="off">
+        </label>
+      </div>
+      <p class="api-note">金鑰只存在這台電腦的瀏覽器（localStorage），不會送到本工具以外的任何地方；圖片分析需使用支援視覺輸入的模型（例如 Claude、GPT-4o、Gemini 系列）。未設定金鑰不影響第一批／第二批標題產生與 CSV 下載等離線功能。</p>
+    </details>
+  </section>
+
+  <section class="panel" id="exportPanel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="badge">⬇</span>下載 CSV</div>
+    </div>
+    <p class="panel-hint">合併輸出第一批＋第二批共 100 組標題（含星等、分級、規格／功能／形容詞拆解），Excel 開啟不會有中文亂碼。</p>
+    <div class="output-actions">
+      <button class="btn primary" id="downloadCsvBtn" type="button">⬇ 下載 CSV（100 組）</button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="warn-box">
+    <strong>使用警語</strong>
+    <ul>
+      <li>本工具產生的「熱門搜尋程度」星等與分級，未串接 AI 前為內建離線參考分數，串接 AI 後為模型的主觀評估——<strong>兩者皆非 Alibaba／Amazon 平台真實即時搜尋數據</strong>，不保證實際上架成效，正式上架前請自行以平台後台工具或人工判斷覆核。</li>
+      <li>本工具依公開資訊整理 Amazon／Alibaba 的一般標題慣例（如 Amazon 避免主觀宣傳詞、Alibaba 允許批發／MOQ 用語）供參考，實際規則以各平台當下公告的政策為準，正式刊登前請自行確認。</li>
+      <li>請勿在任何欄位或上傳圖片中包含真實個資、公司機密或受著作權保護的他人內容——欄位資料只存在你自己瀏覽器的 localStorage，不會上傳到任何伺服器，但送出給 AI 服務後的隱私仍由該服務條款規範。</li>
+      <li>「AI 熱度評分」與「圖片分析」需要你自行填入 API 金鑰，該金鑰只存在你的瀏覽器，按下功能時會直接連線到你選擇的服務商，本工具不會經手或保存金鑰，也不會向你收取任何 API 費用——實際費用依你與該服務商的方案計算。</li>
+      <li>AI 產出的評分、關鍵字建議可能有誤，正式使用前請自行檢查；本工具與創作者不對後續實際上架成效負責。</li>
+      <li>僅供教學、課程及個人使用，禁止未經授權公開發布、販售或商業化使用。</li>
+    </ul>
+  </div>
+  <div class="footer-meta">
+    <span>製作：Mark Tsai｜<a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a></span>
+    <a href="manual.html">操作手冊 →</a>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ================= 頂部跑馬燈（獨立運作，共用工作區既有的公告 Google Sheet，跟序號授權是兩個獨立系統） ================= */
+(function () {
+  'use strict';
+  var MARQUEE_CHECK_URL = "https://script.google.com/macros/s/AKfycbwKX0DNNbY8y4nf90BFTHtxgfqJcHHcZasRrgycl4QAe52_hkjMWSkYk4xOsqU-JPCROw/exec";
+  var STORAGE_KEY = 'ptgMarquee';
+  var REFRESH_MS = 20 * 60 * 1000;
+
+  var bar = document.getElementById('marqueeBar');
+  var track = document.getElementById('marqueeTrack');
+
+  function loadCache() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveCache(items) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch (e) {}
+  }
+  function render(items) {
+    if (!items || !items.length) return;
+    var joined = items.join('　★　');
+    track.textContent = joined + '　★　' + joined;
+    bar.classList.add('show');
+    document.body.classList.add('has-marquee');
+    var width = track.scrollWidth / 2;
+    track.style.animationDuration = Math.max(width / 80, 10) + 's';
+  }
+  function fetchMarquee() {
+    fetch(MARQUEE_CHECK_URL, { method: 'POST', body: JSON.stringify({ serial: '' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && Array.isArray(data.marquee) && data.marquee.length) {
+          saveCache(data.marquee);
+          render(data.marquee);
+        }
+      })
+      .catch(function () {});
+  }
+
+  render(loadCache());
+  fetchMarquee();
+  setInterval(fetchMarquee, REFRESH_MS);
+})();
+
+/* ================= 序號授權閘門（獨立運作，鎖定整個工具） ================= */
+(function () {
+  'use strict';
+  var LICENSE_CHECK_URL = "";
+  var STORAGE_KEY = 'ptgSerial';
+  var RECHECK_MS = 20 * 60 * 1000;
+
+  var gate = document.getElementById('licenseGate');
+  var input = document.getElementById('gateSerial');
+  var toggleBtn = document.getElementById('btnGateToggle');
+  var confirmBtn = document.getElementById('btnGateConfirm');
+  var statusEl = document.getElementById('gateStatus');
+  var badgeEl = document.getElementById('licenseBadge');
+
+  function loadSerial() { return localStorage.getItem(STORAGE_KEY) || ''; }
+  function saveSerial(s) { localStorage.setItem(STORAGE_KEY, s); }
+
+  var REASON_LABEL = {
+    missing_serial: '請輸入授權序號',
+    serial_not_found: '查無此授權序號，請確認輸入是否正確',
+    expired: '此序號已逾使用期限',
+    network_error: '無法連線授權伺服器，請檢查網路連線',
+    server_error: '授權伺服器發生錯誤，請稍後再試'
+  };
+
+  function checkLicense(serial, attempt) {
+    attempt = attempt || 1;
+    if (!LICENSE_CHECK_URL) {
+      return Promise.reject(new Error('尚未設定授權伺服器網址，請聯繫工具提供者'));
+    }
+    return fetch(LICENSE_CHECK_URL, {
+      method: 'POST',
+      body: JSON.stringify({ serial: serial }),
+      signal: AbortSignal.timeout(40000)
+    }).catch(function (err) {
+      throw new Error(err.name === 'TimeoutError' ? '授權伺服器回應時間較長，請稍候片刻後再試一次' : '無法連線授權伺服器，請檢查網路連線');
+    }).then(function (resp) {
+      if (!resp.ok) throw new Error('授權伺服器回應異常（' + resp.status + '）');
+      return resp.text();
+    }).then(function (text) {
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
+      if (!parsed || typeof parsed.valid !== 'boolean') {
+        if (attempt < 3) return checkLicense(serial, attempt + 1);
+        throw new Error('授權伺服器回應異常，請稍後再試一次');
+      }
+      return parsed;
+    });
+  }
+
+  function daysLeft(license) {
+    if (!license.expiresAt) return null;
+    return Math.ceil((new Date(license.expiresAt) - new Date()) / 86400000);
+  }
+  function fmtDays(license) {
+    if (!license.expiresAt) return '';
+    var expireStr = new Date(license.expiresAt).toLocaleDateString();
+    var days = daysLeft(license);
+    return '剩餘 ' + Math.max(days, 0) + ' 天可用（至 ' + expireStr + '）';
+  }
+
+  function updateBadge(license) {
+    if (!badgeEl) return;
+    var days = daysLeft(license);
+    if (days === null) { badgeEl.style.display = 'none'; return; }
+    badgeEl.textContent = '🔑 剩餘 ' + Math.max(days, 0) + ' 天';
+    badgeEl.title = '授權序號使用期限至 ' + new Date(license.expiresAt).toLocaleDateString();
+    badgeEl.className = 'license-badge' + (days <= 7 ? ' warn' : '');
+    badgeEl.style.display = 'inline-block';
+  }
+
+  function unlock(license) {
+    var label = fmtDays(license) || '序號有效';
+    statusEl.className = 'gate-status ok';
+    statusEl.textContent = '✓ ' + label;
+    gate.classList.add('hidden');
+    updateBadge(license);
+  }
+
+  function lock(reasonText) {
+    statusEl.className = 'gate-status bad';
+    statusEl.textContent = '✗ ' + reasonText;
+    gate.classList.remove('hidden');
+    if (badgeEl) badgeEl.style.display = 'none';
+  }
+
+  function runCheck(serial, opts) {
+    opts = opts || {};
+    if (!serial) {
+      statusEl.className = 'gate-status bad';
+      statusEl.textContent = REASON_LABEL.missing_serial;
+      return Promise.resolve({ valid: false, reason: 'missing_serial' });
+    }
+    if (!opts.silent) {
+      statusEl.className = 'gate-status pending';
+      statusEl.textContent = '驗證中…';
+    }
+    return checkLicense(serial).then(function (license) {
+      if (license.valid) unlock(license);
+      else lock(REASON_LABEL[license.reason] || license.message || '授權序號驗證失敗');
+      return license;
+    }).catch(function (err) {
+      lock(err.message);
+      return { valid: false, reason: 'network_error', message: err.message };
+    });
+  }
+
+  confirmBtn.addEventListener('click', function () {
+    var serial = input.value.trim();
+    saveSerial(serial);
+    runCheck(serial);
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmBtn.click(); }
+  });
+  toggleBtn.addEventListener('click', function () {
+    input.type = input.type === 'password' ? 'text' : 'password';
+  });
+
+  input.value = loadSerial();
+  if (input.value) runCheck(input.value, { silent: true });
+
+  setInterval(function () {
+    var serial = loadSerial();
+    if (serial) runCheck(serial, { silent: true });
+  }, RECHECK_MS);
+})();
+
+/* ================= 主程式：詞庫／平台切換／標題產生／AI 評分／圖片分析／CSV 匯出 ================= */
+(function(){
+  'use strict';
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function isLatin1(s){
+    for(var i = 0; i < s.length; i++){ if(s.charCodeAt(i) > 0xFF) return false; }
+    return true;
+  }
+  function showToast(msg){
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function(){ t.classList.remove('show'); }, 2400);
+  }
+
+  /* ---------- 詞庫：規格詞（三個子池）／功能詞／形容詞。tier 1~5 為離線參考熱度分（人工粗略標註，非真實搜尋數據） ---------- */
+  var SPEC_WEIGHT = [
+    {en:'50g',zh:'50克',tier:3}, {en:'100g',zh:'100克',tier:4}, {en:'200g',zh:'200克',tier:5},
+    {en:'250g',zh:'250克',tier:4}, {en:'500g',zh:'500克',tier:5}, {en:'1kg',zh:'1公斤',tier:4},
+    {en:'2kg',zh:'2公斤',tier:3}, {en:'5kg',zh:'5公斤',tier:2}, {en:'16oz',zh:'16盎司',tier:3}, {en:'32oz',zh:'32盎司',tier:2}
+  ];
+  var SPEC_COUNT = [
+    {en:'Pack of 2',zh:'2入組',tier:4}, {en:'Pack of 6',zh:'6入組',tier:4}, {en:'Pack of 12',zh:'12入組',tier:5},
+    {en:'Set of 3',zh:'3件組',tier:4}, {en:'Set of 5',zh:'5件組',tier:3}, {en:'24-Piece',zh:'24件',tier:3},
+    {en:'50-Piece',zh:'50件',tier:3}, {en:'100-Piece',zh:'100件',tier:2},
+    {en:'Bulk Lot of 500',zh:'500件批發組',tier:3,platforms:['alibaba']}, {en:'MOQ 1000 Units',zh:'最低訂購量1000件',tier:3,platforms:['alibaba']}
+  ];
+  var SPEC_SIZE = [
+    {en:'Mini',zh:'迷你款',tier:4}, {en:'Compact',zh:'輕巧款',tier:4}, {en:'Standard',zh:'標準款',tier:3},
+    {en:'Large',zh:'加大款',tier:3}, {en:'XL',zh:'特大款',tier:3}, {en:'King Size',zh:'加大加寬款',tier:2},
+    {en:'Travel Size',zh:'旅行攜帶款',tier:4}, {en:'Family Size',zh:'家庭號',tier:4}
+  ];
+  var FUNCTION_WORDS = [
+    {en:'Baking',zh:'烘焙用',tier:4}, {en:'Cooking',zh:'烹飪用',tier:4}, {en:'Skincare',zh:'護膚用',tier:5},
+    {en:'Haircare',zh:'護髮用',tier:4}, {en:'Gift',zh:'送禮用',tier:5}, {en:'Outdoor',zh:'戶外用',tier:4},
+    {en:'Travel',zh:'旅行用',tier:4}, {en:'Home Use',zh:'居家用',tier:4}, {en:'Office',zh:'辦公室用',tier:3},
+    {en:'Party',zh:'派對用',tier:3}, {en:'Wedding',zh:'婚禮用',tier:3}, {en:'Kitchen',zh:'廚房用',tier:4},
+    {en:'Camping',zh:'露營用',tier:4}, {en:'DIY',zh:'手作用',tier:3}, {en:'Daily Use',zh:'日常用',tier:4}, {en:'Professional Use',zh:'專業用',tier:3}
+  ];
+  var ADJECTIVE_WORDS = [
+    {en:'Premium',zh:'頂級',tier:5}, {en:'Organic',zh:'有機',tier:5}, {en:'Natural',zh:'天然',tier:5},
+    {en:'Portable',zh:'便攜式',tier:4}, {en:'Reusable',zh:'可重複使用',tier:4}, {en:'Waterproof',zh:'防水',tier:4},
+    {en:'Eco-Friendly',zh:'環保',tier:4}, {en:'Compact',zh:'輕巧',tier:3}, {en:'Professional',zh:'專業級',tier:4},
+    {en:'Instant',zh:'即溶／即用',tier:4}, {en:'Non-GMO',zh:'非基改',tier:3}, {en:'Handmade',zh:'手工製',tier:3},
+    {en:'Multi-Purpose',zh:'多用途',tier:4}, {en:'Heavy Duty',zh:'耐用型',tier:3}, {en:'Lightweight',zh:'輕量化',tier:4}, {en:'Durable',zh:'耐久',tier:3},
+    {en:'Wholesale',zh:'批發',tier:5,platforms:['alibaba']}, {en:'Bulk',zh:'大量',tier:4,platforms:['alibaba']},
+    {en:'OEM',zh:'代工客製',tier:4,platforms:['alibaba']}, {en:'Custom Logo',zh:'客製化Logo',tier:4,platforms:['alibaba']},
+    {en:'Factory Direct',zh:'工廠直營',tier:4,platforms:['alibaba']}, {en:'Hot Sale',zh:'熱賣',tier:4,platforms:['alibaba']},
+    {en:'Best-Selling',zh:'暢銷',tier:4,platforms:['alibaba']}, {en:'Low MOQ',zh:'低起訂量',tier:3,platforms:['alibaba']}
+  ];
+  var STAR_TIER = {5:'S', 4:'A', 3:'B', 2:'C', 1:'D'};
+
+  var PLATFORMS = {
+    amazon: {label:'Amazon 美國站', shortEn:'AMAZON US', shortZh:'Amazon 美國站', hint:'自動排除主觀宣傳詞（Best／#1／Sale／Free Shipping 等）與批發／MOQ 用語，標題套用 Title Case。'},
+    alibaba: {label:'Alibaba 國際站', shortEn:'ALIBABA INTL', shortZh:'Alibaba 國際站', hint:'開放批發／MOQ／客製／促銷堆疊用語，適合 B2B 詢價情境。'}
+  };
+  var PLATFORM_ORDER = ['amazon', 'alibaba'];
+
+  var PRESETS = [
+    {name:'抹茶粉（批發／Alibaba）', coreEn:'matcha powder', coreZh:'抹茶粉', synonyms:'green tea powder\ngreen tea extract powder', platform:'alibaba', specType:'weight'},
+    {name:'瑜珈墊（Amazon）', coreEn:'yoga mat', coreZh:'瑜珈墊', synonyms:'exercise mat\nfitness mat', platform:'amazon', specType:'size'},
+    {name:'不鏽鋼保溫瓶（Amazon）', coreEn:'stainless steel water bottle', coreZh:'不鏽鋼保溫瓶', synonyms:'insulated water bottle\nvacuum flask', platform:'amazon', specType:'weight'},
+    {name:'寵物潔牙骨（批發／Alibaba）', coreEn:'pet dental chews', coreZh:'寵物潔牙骨', synonyms:'dog dental chews\npet teeth cleaning treats', platform:'alibaba', specType:'count'},
+    {name:'露營LED燈（Amazon）', coreEn:'camping LED lantern', coreZh:'露營LED燈', synonyms:'outdoor LED light\nportable camping light', platform:'amazon', specType:'count'}
+  ];
+
+  /* ---------- 狀態 ---------- */
+  var STATE_KEY = 'ptgState';
+  function defaultFields(){ return {coreEn:'', coreZh:'', synonyms:'', specType:'mixed'}; }
+  function defaultState(){ return {activePlatform:'amazon', fields:defaultFields(), batch1:[], batch2:[]}; }
+  function loadState(){
+    try{
+      var raw = JSON.parse(localStorage.getItem(STATE_KEY));
+      if(!raw || !raw.fields) return defaultState();
+      var d = defaultState();
+      Object.assign(d.fields, raw.fields);
+      if(raw.activePlatform && PLATFORMS[raw.activePlatform]) d.activePlatform = raw.activePlatform;
+      if(Array.isArray(raw.batch1)) d.batch1 = raw.batch1;
+      if(Array.isArray(raw.batch2)) d.batch2 = raw.batch2;
+      return d;
+    }catch(e){ return defaultState(); }
+  }
+  function persistState(){ try{ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }catch(e){} }
+  var state = loadState();
+
+  /* ---------- 平台分頁 ---------- */
+  function renderPlatformTabs(){
+    var wrap = $('platformTabs');
+    wrap.innerHTML = PLATFORM_ORDER.map(function(p){
+      var pf = PLATFORMS[p];
+      return '<button type="button" class="type-tab' + (p === state.activePlatform ? ' active' : '') + '" data-platform="' + p + '">'
+        + '<span class="tt-en">' + escapeHtml(pf.shortEn) + '</span>'
+        + '<span class="tt-zh">' + escapeHtml(pf.shortZh) + '</span>'
+        + '</button>';
+    }).join('');
+    wrap.querySelectorAll('.type-tab').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var next = btn.getAttribute('data-platform');
+        if(next === state.activePlatform) return;
+        if((state.batch1.length || state.batch2.length) && !confirm('切換平台會清空目前已產生的標題（不同平台詞庫不同），確定切換嗎？')) return;
+        state.activePlatform = next;
+        state.batch1 = []; state.batch2 = [];
+        persistState();
+        renderPlatformTabs();
+        renderBatchTable('batch1TableWrap', [], false);
+        renderBatchTable('batch2TableWrap', [], true);
+      });
+    });
+  }
+
+  /* ---------- 欄位 ---------- */
+  function renderFieldsFromState(){
+    $('f_coreEn').value = state.fields.coreEn || '';
+    $('f_coreZh').value = state.fields.coreZh || '';
+    $('f_synonyms').value = state.fields.synonyms || '';
+    $('f_spectype').value = state.fields.specType || 'mixed';
+  }
+  function bindFieldInputs(){
+    $('f_coreEn').addEventListener('input', function(){ state.fields.coreEn = this.value; persistState(); });
+    $('f_coreZh').addEventListener('input', function(){ state.fields.coreZh = this.value; persistState(); });
+    $('f_synonyms').addEventListener('input', function(){ state.fields.synonyms = this.value; persistState(); });
+    $('f_spectype').addEventListener('change', function(){ state.fields.specType = this.value; persistState(); });
+  }
+  function fieldsHasContent(){
+    var f = state.fields;
+    return !!(f.coreEn || f.coreZh || f.synonyms);
+  }
+  $('clearBtn').addEventListener('click', function(){
+    if(fieldsHasContent() && !confirm('確定要清空目前所有欄位嗎？此動作無法復原。')) return;
+    state.fields = defaultFields();
+    persistState();
+    renderFieldsFromState();
+  });
+
+  function initPresetSelect(){
+    $('presetSelect').innerHTML = '<option value="">— 選擇一個情境快速開始 —</option>'
+      + PRESETS.map(function(p, i){ return '<option value="' + i + '">' + escapeHtml(p.name) + '</option>'; }).join('');
+  }
+  $('presetSelect').addEventListener('change', function(){
+    var idx = this.value;
+    if(idx === '') return;
+    if((fieldsHasContent() || state.batch1.length || state.batch2.length) && !confirm('套用範例將覆蓋目前已填寫的內容與已產生的標題，確定要套用嗎？')){
+      this.value = '';
+      return;
+    }
+    var preset = PRESETS[parseInt(idx, 10)];
+    state.fields = {coreEn:preset.coreEn, coreZh:preset.coreZh, synonyms:preset.synonyms, specType:preset.specType};
+    state.activePlatform = preset.platform;
+    state.batch1 = []; state.batch2 = [];
+    persistState();
+    renderFieldsFromState();
+    renderPlatformTabs();
+    renderBatchTable('batch1TableWrap', [], false);
+    renderBatchTable('batch2TableWrap', [], true);
+    this.value = '';
+    showToast('已套用範例「' + preset.name + '」');
+  });
+
+  /* ---------- 標題產生邏輯 ---------- */
+  function specPoolByType(type){
+    if(type === 'weight') return SPEC_WEIGHT;
+    if(type === 'count') return SPEC_COUNT;
+    if(type === 'size') return SPEC_SIZE;
+    return SPEC_WEIGHT.concat(SPEC_COUNT, SPEC_SIZE);
+  }
+  function filterPlatform(list, platform){
+    return list.filter(function(o){ return !o.platforms || o.platforms.indexOf(platform) >= 0; });
+  }
+  function titleCase(phrase){
+    return phrase.split(/\s+/).map(function(w){
+      if(!w) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+  }
+  function phrasesShareWord(a, b){
+    var wa = a.toLowerCase().split(/\s+/);
+    var wb = b.toLowerCase().split(/\s+/);
+    return wa.some(function(w){ return wb.indexOf(w) >= 0; });
+  }
+  function pickRandom(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function weightedPick(arr){
+    var total = 0;
+    arr.forEach(function(o){ total += o.tier * o.tier; });
+    var r = Math.random() * total;
+    for(var i = 0; i < arr.length; i++){
+      r -= arr[i].tier * arr[i].tier;
+      if(r <= 0) return arr[i];
+    }
+    return arr[arr.length - 1];
+  }
+  function coreVariants(includeSynonyms){
+    var core = (state.fields.coreEn || '').trim();
+    var list = core ? [core] : [];
+    if(includeSynonyms){
+      (state.fields.synonyms || '').split('\n').forEach(function(line){
+        line = line.trim();
+        if(line) list.push(line);
+      });
+    }
+    return list;
+  }
+
+  function generateBatch(count, opts){
+    // opts: {specPool, funcPool, adjPool, coreList, weighted, excludeSet, platform}
+    var results = [];
+    var seen = {};
+    (opts.excludeSet || []).forEach(function(t){ seen[t] = true; });
+    var attempts = 0, maxAttempts = count * 120;
+    while(results.length < count && attempts < maxAttempts){
+      attempts++;
+      var spec = opts.weighted ? weightedPick(opts.specPool) : pickRandom(opts.specPool);
+      var func = opts.weighted ? weightedPick(opts.funcPool) : pickRandom(opts.funcPool);
+      var adj = opts.weighted ? weightedPick(opts.adjPool) : pickRandom(opts.adjPool);
+      // 規格詞／功能詞／形容詞三個詞庫彼此獨立維護，可能共用同一個字或字根（例如 SPEC_SIZE 的
+      // "Travel Size" 與 FUNCTION_WORDS 的 "Travel"、或 SPEC_SIZE 與 ADJECTIVE_WORDS 都有
+      // "Compact"）——同一組合裡出現重複字會讓標題唸起來語意重複，逐字比對三個詞彙有沒有共用字，
+      // 有就跳過重抽，不計入嘗試次數消耗的結果
+      if(phrasesShareWord(spec.en, func.en) || phrasesShareWord(spec.en, adj.en) || phrasesShareWord(func.en, adj.en)) continue;
+      var core = pickRandom(opts.coreList);
+      var titleEn = [spec.en, func.en, adj.en, titleCase(core)].join(' ');
+      if(seen[titleEn]) continue;
+      seen[titleEn] = true;
+      var tierAvg = (spec.tier + func.tier + adj.tier) / 3;
+      var stars = Math.max(1, Math.min(5, Math.round(tierAvg)));
+      results.push({
+        en: titleEn, zh: '', core: core,
+        specEn: spec.en, funcEn: func.en, adjEn: adj.en,
+        specZh: spec.zh, funcZh: func.zh, adjZh: adj.zh,
+        stars: stars, tier: STAR_TIER[stars], aiScored: false, aiReason: '',
+        overLen: opts.platform === 'amazon' && titleEn.length > 200
+      });
+    }
+    return results;
+  }
+
+  function requireCoreKeyword(){
+    if(!(state.fields.coreEn || '').trim()){
+      showToast('請先填寫核心關鍵詞（英文）');
+      return false;
+    }
+    return true;
+  }
+
+  $('genBatch1Btn').addEventListener('click', function(){
+    if(!requireCoreKeyword()) return;
+    var platform = state.activePlatform;
+    var specPool = filterPlatform(specPoolByType(state.fields.specType), platform);
+    var funcPool = filterPlatform(FUNCTION_WORDS, platform);
+    var adjPool = filterPlatform(ADJECTIVE_WORDS, platform);
+    state.batch1 = generateBatch(50, {specPool:specPool, funcPool:funcPool, adjPool:adjPool, coreList:coreVariants(true), weighted:false, platform:platform});
+    persistState();
+    renderBatchTable('batch1TableWrap', state.batch1, false);
+    $('batch1Report').innerHTML = '<div class="ok">已產生 ' + state.batch1.length + ' 組不重複標題。</div>';
+    showToast('已產生第一批 ' + state.batch1.length + ' 組');
+  });
+
+  $('genBatch2Btn').addEventListener('click', function(){
+    if(!requireCoreKeyword()) return;
+    var platform = state.activePlatform;
+    var specPool = filterPlatform(specPoolByType(state.fields.specType), platform);
+    var funcPool = filterPlatform(FUNCTION_WORDS, platform);
+    var adjPool = filterPlatform(ADJECTIVE_WORDS, platform);
+    var exclude = state.batch1.map(function(r){ return r.en; });
+    var rows = generateBatch(50, {specPool:specPool, funcPool:funcPool, adjPool:adjPool, coreList:coreVariants(false), weighted:true, excludeSet:exclude, platform:platform});
+    var coreZh = (state.fields.coreZh || '').trim();
+    rows.forEach(function(r){
+      r.zh = [r.specZh, r.funcZh, r.adjZh, coreZh || '（請填寫中文核心關鍵詞或使用 AI 翻譯）'].join(' ');
+    });
+    state.batch2 = rows;
+    persistState();
+    renderBatchTable('batch2TableWrap', state.batch2, true);
+    $('batch2Report').innerHTML = '<div class="ok">已產生 ' + state.batch2.length + ' 組熱度優先標題（與第一批不重複）。</div>';
+    showToast('已產生第二批 ' + state.batch2.length + ' 組');
+  });
+
+  /* ---------- 表格呈現 ---------- */
+  function starsHtml(stars){
+    var s = '';
+    for(var i = 1; i <= 5; i++) s += i <= stars ? '★' : '<span class="empty">★</span>';
+    return '<span class="stars">' + s + '</span>';
+  }
+  function renderBatchTable(containerId, rows, showZh){
+    var wrap = $(containerId);
+    if(!rows || !rows.length){
+      wrap.innerHTML = '<p class="empty-hint">尚未產生標題。</p>';
+      return;
+    }
+    var head = '<tr><th>#</th><th>標題（英）</th>' + (showZh ? '<th>標題（中）</th>' : '') + '<th>星等</th><th>分級</th><th>拆解</th></tr>';
+    var body = rows.map(function(r, i){
+      var titleCell = '<td class="en">' + escapeHtml(r.en) + (r.overLen ? '<br><span class="over-len">⚠ 超過建議長度</span>' : '') + '</td>';
+      var zhCell = showZh ? '<td class="zh">' + escapeHtml(r.zh) + '</td>' : '';
+      var reasonTitle = r.aiReason ? ' title="' + escapeHtml(r.aiReason) + '"' : '';
+      return '<tr>'
+        + '<td>' + (i + 1) + '</td>'
+        + titleCell + zhCell
+        + '<td>' + starsHtml(r.stars) + '</td>'
+        + '<td><span class="tier-badge tier-' + r.tier + '"' + reasonTitle + '>' + r.tier + (r.aiScored ? ' 🤖' : '') + '</span></td>'
+        + '<td class="tags"><span>' + escapeHtml(r.specEn) + '</span><span>' + escapeHtml(r.funcEn) + '</span><span>' + escapeHtml(r.adjEn) + '</span></td>'
+        + '</tr>';
+    }).join('');
+    wrap.innerHTML = '<div class="table-wrap"><table class="titles">' + head + body + '</table></div>';
+  }
+
+  /* ---------- BYOK：Claude／OpenAI／Gemini／OpenRouter（文字＋圖片），金鑰只存本機瀏覽器 ---------- */
+  var AI_PROVIDERS = {
+    claude:     {label:'Claude（Anthropic）',       defaultModel:'claude-opus-4-8'},
+    openai:     {label:'OpenAI',                    defaultModel:'gpt-4o-mini'},
+    gemini:     {label:'Gemini（Google AI Studio）', defaultModel:'gemini-3.5-flash'},
+    openrouter: {label:'OpenRouter',                defaultModel:'openai/gpt-4o-mini'}
+  };
+  var API_STORAGE_KEY = 'ptgApiConfig';
+
+  function loadApiConfig(){ try{ return JSON.parse(localStorage.getItem(API_STORAGE_KEY)) || {}; }catch(e){ return {}; } }
+  function persistApiConfig(){
+    try{
+      localStorage.setItem(API_STORAGE_KEY, JSON.stringify({
+        provider: $('aiProvider').value, model: $('aiModel').value.trim(), apiKey: $('aiKey').value.trim()
+      }));
+    }catch(e){}
+  }
+  function initAiPanel(){
+    var sel = $('aiProvider');
+    sel.innerHTML = Object.keys(AI_PROVIDERS).map(function(k){ return '<option value="' + k + '">' + AI_PROVIDERS[k].label + '</option>'; }).join('');
+    var cfg = loadApiConfig();
+    sel.value = (cfg.provider && AI_PROVIDERS[cfg.provider]) ? cfg.provider : 'claude';
+    $('aiModel').value = cfg.model || AI_PROVIDERS[sel.value].defaultModel;
+    $('aiKey').value = cfg.apiKey || '';
+    sel.addEventListener('change', function(){
+      var modelEl = $('aiModel');
+      var isDefault = Object.keys(AI_PROVIDERS).some(function(k){ return AI_PROVIDERS[k].defaultModel === modelEl.value.trim(); });
+      if(!modelEl.value.trim() || isDefault) modelEl.value = AI_PROVIDERS[sel.value].defaultModel;
+      persistApiConfig();
+    });
+    $('aiModel').addEventListener('input', persistApiConfig);
+    $('aiKey').addEventListener('input', persistApiConfig);
+  }
+  function splitDataUrl(dataUrl){
+    var m = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+    return m ? {mime:m[1], data:m[2]} : null;
+  }
+
+  async function callLLM(provider, model, apiKey, prompt, onRetry, imageDataUrl){
+    var url, headers, body, extract;
+    var img = imageDataUrl ? splitDataUrl(imageDataUrl) : null;
+
+    if(provider === 'claude'){
+      url = 'https://api.anthropic.com/v1/messages';
+      headers = {'content-type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'};
+      var claudeContent = img
+        ? [{type:'image', source:{type:'base64', media_type:img.mime, data:img.data}}, {type:'text', text:prompt}]
+        : prompt;
+      body = {model: model, max_tokens: 4000, messages: [{role:'user', content: claudeContent}]};
+      extract = function(d){
+        if(d.stop_reason === 'refusal') throw new Error('模型拒絕了這個請求（refusal）');
+        var t = (d.content || []).filter(function(b){ return b.type === 'text'; }).map(function(b){ return b.text; }).join('');
+        if(!t) throw new Error('回應中沒有文字內容');
+        return t;
+      };
+    } else if(provider === 'openai' || provider === 'openrouter'){
+      url = provider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+      headers = {'content-type':'application/json', 'authorization':'Bearer ' + apiKey};
+      var oaContent = img
+        ? [{type:'text', text:prompt}, {type:'image_url', image_url:{url:imageDataUrl}}]
+        : prompt;
+      body = {model: model, messages: [{role:'user', content: oaContent}]};
+      extract = function(d){
+        var t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+        if(!t) throw new Error('回應中沒有文字內容');
+        return t;
+      };
+    } else if(provider === 'gemini'){
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
+      headers = {'content-type':'application/json', 'x-goog-api-key':apiKey};
+      var parts = img ? [{text:prompt}, {inline_data:{mime_type:img.mime, data:img.data}}] : [{text:prompt}];
+      body = {contents: [{parts: parts}]};
+      extract = function(d){
+        var ps = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || [];
+        var t = ps.map(function(p){ return p.text || ''; }).join('');
+        if(!t) throw new Error('回應中沒有文字內容');
+        return t;
+      };
+    } else {
+      throw new Error('不支援的服務商');
+    }
+
+    var RETRYABLE = {429:1, 500:1, 503:1, 529:1};
+    var MAX_TRIES = 3;
+    for(var attempt = 1; attempt <= MAX_TRIES; attempt++){
+      var resp = await fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body), signal:AbortSignal.timeout(180000)});
+      var raw = await resp.text();
+      if(resp.ok) return extract(JSON.parse(raw));
+      var msg = raw.slice(0, 300);
+      try{ var err = JSON.parse(raw); msg = (err.error && err.error.message) || err.message || msg; }catch(e){}
+      if(RETRYABLE[resp.status] && attempt < MAX_TRIES){
+        var waitSec = attempt * 8;
+        if(onRetry) onRetry(attempt, resp.status, waitSec);
+        await new Promise(function(r){ setTimeout(r, waitSec * 1000); });
+        continue;
+      }
+      if(resp.status === 404) msg += '——這通常表示模型名稱錯誤或已停用，請到該服務商的模型列表確認目前可用的模型 ID';
+      if(RETRYABLE[resp.status]) msg += '——已自動重試 ' + (MAX_TRIES - 1) + ' 次仍失敗，多為服務商暫時過載，請稍候幾分鐘再試，或更換模型／服務商';
+      throw new Error('API 回應 ' + resp.status + '：' + msg);
+    }
+  }
+
+  function getAiCreds(){
+    return {provider: $('aiProvider').value, model: $('aiModel').value.trim(), apiKey: $('aiKey').value.trim()};
+  }
+  function validateAiCreds(creds, reportEl){
+    if(!creds.apiKey){ reportEl.innerHTML = '<div class="bad">請先在下方「API 連線設定」填入 API 金鑰</div>'; return false; }
+    if(!creds.model){ reportEl.innerHTML = '<div class="bad">請填入模型名稱</div>'; return false; }
+    if(!isLatin1(creds.apiKey) || !isLatin1(creds.model)){ reportEl.innerHTML = '<div class="bad">API 金鑰或模型名稱包含不可用的字元，請確認「API 連線設定」內容</div>'; return false; }
+    return true;
+  }
+  function parseJsonLoose(raw){
+    var cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    return JSON.parse(cleaned);
+  }
+
+  /* ---------- AI 熱度評分：單一批次一次呼叫，回傳每筆 {index,stars,tier,reason} ---------- */
+  function buildScorePrompt(rows, platform){
+    var list = rows.map(function(r, i){ return {index:i, title:r.en}; });
+    var lines = [];
+    lines.push('你是熟悉「' + PLATFORMS[platform].label + '」商品標題慣例的跨境電商顧問。以下 JSON 陣列每筆為 {index, title}，title 為英文商品標題。');
+    lines.push('請針對每一筆，評估它在該平台上的關鍵字熱門搜尋程度與吸引力，給予 1~5 的星等（5 最高）與對應分級（5=S,4=A,3=B,2=C,1=D），並用不超過 15 字的中文簡短說明理由。');
+    lines.push('請只輸出一個 JSON 陣列本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：[{"index":0,"stars":4,"tier":"A","reason":"..."}]');
+    lines.push('');
+    lines.push(JSON.stringify(list));
+    return lines.join('\n');
+  }
+  async function runAiScoring(rows, reportEl){
+    var creds = getAiCreds();
+    if(!validateAiCreds(creds, reportEl)) return;
+    if(!rows.length){ reportEl.innerHTML = '<div class="bad">請先產生這批標題再評分</div>'; return; }
+    persistApiConfig();
+    reportEl.innerHTML = '<div class="ok">呼叫 ' + AI_PROVIDERS[creds.provider].label + '（' + escapeHtml(creds.model) + '）評分 ' + rows.length + ' 組標題中，請稍候…</div>';
+    try{
+      var prompt = buildScorePrompt(rows, state.activePlatform);
+      var raw = await callLLM(creds.provider, creds.model, creds.apiKey, prompt, function(attempt, status, waitSec){
+        reportEl.innerHTML = '<div class="warn">API 回應 ' + status + '（服務商暫時過載／限流），' + waitSec + ' 秒後自動重試（第 ' + attempt + '／2 次）…</div>';
+      });
+      var parsed = parseJsonLoose(raw);
+      if(!Array.isArray(parsed)) throw new Error('AI 回應格式不是預期的 JSON 陣列');
+      var applied = 0;
+      parsed.forEach(function(item){
+        var row = rows[item.index];
+        if(!row) return;
+        var stars = Math.max(1, Math.min(5, parseInt(item.stars, 10) || row.stars));
+        row.stars = stars;
+        row.tier = item.tier && STAR_TIER[stars] ? STAR_TIER[stars] : (item.tier || STAR_TIER[stars]);
+        row.tier = STAR_TIER[stars];
+        row.aiReason = String(item.reason || '');
+        row.aiScored = true;
+        applied++;
+      });
+      persistState();
+      reportEl.innerHTML = '<div class="ok">已套用 AI 評分（' + applied + '／' + rows.length + ' 組），滑鼠移到分級標籤可看理由。</div>';
+    }catch(err){
+      var msg;
+      if(err.name === 'TimeoutError') msg = '請求逾時（180秒），請重試或換模型';
+      else if(/ISO-8859-1|non.*code point/i.test(err.message || '')) msg = 'API 金鑰或模型名稱包含不可用的字元，請重新確認貼上的內容';
+      else if(err instanceof SyntaxError) msg = 'AI 回應無法解析為 JSON，請重試（模型偶爾會加上多餘文字）';
+      else msg = err.message;
+      reportEl.innerHTML = '<div class="bad">評分失敗：' + escapeHtml(msg) + '</div>';
+    }
+  }
+
+  $('aiScoreBatch1Btn').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    await runAiScoring(state.batch1, $('batch1Report'));
+    renderBatchTable('batch1TableWrap', state.batch1, false);
+    btn.disabled = false;
+  });
+  $('aiScoreBatch2Btn').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    await runAiScoring(state.batch2, $('batch2Report'));
+    renderBatchTable('batch2TableWrap', state.batch2, true);
+    btn.disabled = false;
+  });
+
+  /* ---------- 圖片上傳＋AI 建議關鍵字（僅建議核心關鍵詞候選；賣點建議純參考不可插入） ---------- */
+  var currentImageDataUrl = '';
+  $('imageInput').addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file || !file.type.startsWith('image/')) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      currentImageDataUrl = ev.target.result;
+      var img = $('imagePreview');
+      img.src = currentImageDataUrl;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function buildImagePrompt(){
+    var lines = [];
+    lines.push('你是熟悉 Alibaba／Amazon 商品標題寫作的跨境電商顧問。請觀察這張商品圖片，判斷這是什麼商品，並給出：');
+    lines.push('(1) 2~3 個適合當作商品標題「核心關鍵詞」的英文詞組候選（附中文意思）');
+    lines.push('(2) 3~5 個依圖片內容判斷、適合放進標題的賣點或情境形容詞建議（中英對照，僅供參考，不需要跟特定詞庫一致）');
+    lines.push('請只輸出一個 JSON 物件本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：');
+    lines.push('{"coreKeywords":[{"en":"...","zh":"..."}],"suggestions":[{"en":"...","zh":"..."}]}');
+    return lines.join('\n');
+  }
+  function renderImageSuggestions(data){
+    var wrap = $('imageSuggestions');
+    var html = '';
+    if(data.coreKeywords && data.coreKeywords.length){
+      html += '<div class="field-hint" style="margin-bottom:6px;">核心關鍵詞候選（點擊套用）：</div>';
+      html += data.coreKeywords.map(function(c, i){
+        return '<span class="suggest-pill" data-idx="' + i + '">' + escapeHtml(c.en) + (c.zh ? '（' + escapeHtml(c.zh) + '）' : '') + '</span>';
+      }).join('');
+    }
+    if(data.suggestions && data.suggestions.length){
+      html += '<div class="field-hint" style="margin:10px 0 6px;">賣點／情境建議（僅供參考）：</div>';
+      html += data.suggestions.map(function(s){
+        return '<span class="suggest-note">' + escapeHtml(s.en) + (s.zh ? '（' + escapeHtml(s.zh) + '）' : '') + '</span>';
+      }).join('');
+    }
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.suggest-pill').forEach(function(pill){
+      pill.addEventListener('click', function(){
+        var c = data.coreKeywords[parseInt(pill.getAttribute('data-idx'), 10)];
+        if(!c) return;
+        if(fieldsHasContent() && !confirm('套用這個建議將覆蓋目前的核心關鍵詞欄位，確定嗎？')) return;
+        state.fields.coreEn = c.en || '';
+        state.fields.coreZh = c.zh || '';
+        persistState();
+        renderFieldsFromState();
+        showToast('已套用「' + c.en + '」到核心關鍵詞');
+      });
+    });
+  }
+  $('analyzeImageBtn').addEventListener('click', async function(){
+    var report = $('imageReport');
+    if(!currentImageDataUrl){ report.innerHTML = '<div class="bad">請先選擇一張圖片</div>'; return; }
+    var creds = getAiCreds();
+    if(!validateAiCreds(creds, report)) return;
+    persistApiConfig();
+    var btn = this;
+    btn.disabled = true;
+    report.innerHTML = '<div class="ok">呼叫 ' + AI_PROVIDERS[creds.provider].label + '（' + escapeHtml(creds.model) + '）分析圖片中，請稍候…</div>';
+    try{
+      var raw = await callLLM(creds.provider, creds.model, creds.apiKey, buildImagePrompt(), function(attempt, status, waitSec){
+        report.innerHTML = '<div class="warn">API 回應 ' + status + '（服務商暫時過載／限流），' + waitSec + ' 秒後自動重試（第 ' + attempt + '／2 次）…</div>';
+      }, currentImageDataUrl);
+      var parsed = parseJsonLoose(raw);
+      renderImageSuggestions(parsed);
+      report.innerHTML = '<div class="ok">已產生建議，請自行檢查後套用。</div>';
+    }catch(err){
+      var msg;
+      if(err.name === 'TimeoutError') msg = '請求逾時（180秒），請重試或換模型';
+      else if(err instanceof SyntaxError) msg = 'AI 回應無法解析為 JSON，請重試（模型偶爾會加上多餘文字）';
+      else msg = err.message;
+      report.innerHTML = '<div class="bad">分析失敗：' + escapeHtml(msg) + '</div>';
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  /* ---------- CSV 下載（合併兩批，UTF-8 BOM 避免 Excel 中文亂碼） ---------- */
+  function csvCell(v){
+    v = String(v == null ? '' : v);
+    if(/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+  $('downloadCsvBtn').addEventListener('click', function(){
+    if(!state.batch1.length && !state.batch2.length){ showToast('請先產生標題再下載'); return; }
+    var platformLabel = PLATFORMS[state.activePlatform].label;
+    var header = ['批次', '標題(英)', '標題(中)', '星等', '分級', '規格詞', '功能詞', '形容詞', '核心關鍵詞', '適用平台'];
+    var rows = [header];
+    state.batch1.forEach(function(r){ rows.push(['第一批', r.en, '', r.stars, r.tier, r.specEn, r.funcEn, r.adjEn, r.core, platformLabel]); });
+    state.batch2.forEach(function(r){ rows.push(['第二批', r.en, r.zh, r.stars, r.tier, r.specEn, r.funcEn, r.adjEn, r.core, platformLabel]); });
+    var csv = rows.map(function(row){ return row.map(csvCell).join(','); }).join('\r\n');
+    var blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date();
+    var stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    a.href = url; a.download = 'product-titles-' + stamp + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('已下載 CSV（共 ' + (state.batch1.length + state.batch2.length) + ' 列）');
+  });
+
+  /* ---------- 初始化 ---------- */
+  bindFieldInputs();
+  renderFieldsFromState();
+  initPresetSelect();
+  renderPlatformTabs();
+  renderBatchTable('batch1TableWrap', state.batch1, false);
+  renderBatchTable('batch2TableWrap', state.batch2, true);
+  initAiPanel();
+})();
+</script>
+
+</body>
+</html>
