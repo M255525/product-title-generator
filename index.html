@@ -292,6 +292,12 @@
       <label for="f_synonyms">同義詞／相關詞（選填，每行一個，僅用於第一批增加變化）</label>
       <textarea id="f_synonyms" placeholder="例：&#10;matcha powder&#10;green tea extract powder"></textarea>
     </div>
+
+    <div class="field">
+      <label for="f_description">產品說明（選填）</label>
+      <textarea id="f_description" placeholder="例：日本進口抹茶粉，無添加糖，適合烘焙與沖泡，主要客群為健康取向的烘焙愛好者"></textarea>
+      <p class="field-hint">不影響離線產生的標題本身；「🚀 AI 熱度評分」與「🔍 分析圖片建議關鍵字」會參考這裡的內容，判斷得更貼近實際產品。</p>
+    </div>
   </section>
 
   <section class="panel" id="batch1Panel">
@@ -669,17 +675,17 @@
   var PLATFORM_ORDER = ['amazon', 'alibaba'];
 
   var PRESETS = [
-    {name:'抹茶粉（批發／Alibaba）', coreEn:'matcha powder', coreZh:'抹茶粉', synonyms:'green tea powder\ngreen tea extract powder', platform:'alibaba'},
-    {name:'瑜珈墊（Amazon）', coreEn:'yoga mat', coreZh:'瑜珈墊', synonyms:'exercise mat\nfitness mat', platform:'amazon'},
-    {name:'不鏽鋼保溫瓶（Amazon）', coreEn:'stainless steel water bottle', coreZh:'不鏽鋼保溫瓶', synonyms:'insulated water bottle\nvacuum flask', platform:'amazon'},
-    {name:'寵物潔牙骨（批發／Alibaba）', coreEn:'pet dental chews', coreZh:'寵物潔牙骨', synonyms:'dog dental chews\npet teeth cleaning treats', platform:'alibaba'},
-    {name:'露營LED燈（Amazon）', coreEn:'camping LED lantern', coreZh:'露營LED燈', synonyms:'outdoor LED light\nportable camping light', platform:'amazon'}
+    {name:'抹茶粉（批發／Alibaba）', coreEn:'matcha powder', coreZh:'抹茶粉', synonyms:'green tea powder\ngreen tea extract powder', platform:'alibaba', description:'日本進口抹茶粉，無添加糖，適合烘焙與沖泡，主要客群為健康取向的烘焙愛好者與飲品店採購'},
+    {name:'瑜珈墊（Amazon）', coreEn:'yoga mat', coreZh:'瑜珈墊', synonyms:'exercise mat\nfitness mat', platform:'amazon', description:'TPE 環保材質瑜珈墊，防滑加厚，適合居家與健身房使用，主要客群為初學到進階的瑜珈練習者'},
+    {name:'不鏽鋼保溫瓶（Amazon）', coreEn:'stainless steel water bottle', coreZh:'不鏽鋼保溫瓶', synonyms:'insulated water bottle\nvacuum flask', platform:'amazon', description:'304不鏽鋼真空雙層保溫瓶，可保冷保熱，適合戶外運動與通勤攜帶使用'},
+    {name:'寵物潔牙骨（批發／Alibaba）', coreEn:'pet dental chews', coreZh:'寵物潔牙骨', synonyms:'dog dental chews\npet teeth cleaning treats', platform:'alibaba', description:'天然原料寵物潔牙骨，可幫助清潔牙齒與減少牙結石，適合中小型犬使用，主要銷售對象為寵物用品經銷商'},
+    {name:'露營LED燈（Amazon）', coreEn:'camping LED lantern', coreZh:'露營LED燈', synonyms:'outdoor LED light\nportable camping light', platform:'amazon', description:'可折疊USB充電LED露營燈，具備多段亮度與掛勾設計，適合露營、停電備用與戶外夜間活動'}
   ];
 
   /* ---------- 狀態 ---------- */
   var STATE_KEY = 'ptgState';
   var sortState = {batch1: null, batch2: null}; // null=產生時的原始順序，'desc'/'asc'=依星等排序（不寫入 localStorage，每次產生會重置）
-  function defaultFields(){ return {coreEn:'', coreZh:'', synonyms:''}; }
+  function defaultFields(){ return {coreEn:'', coreZh:'', synonyms:'', description:''}; }
   function defaultState(){ return {activePlatform:'amazon', fields:defaultFields(), batch1:[], batch2:[]}; }
   function loadState(){
     try{
@@ -727,15 +733,17 @@
     $('f_coreEn').value = state.fields.coreEn || '';
     $('f_coreZh').value = state.fields.coreZh || '';
     $('f_synonyms').value = state.fields.synonyms || '';
+    $('f_description').value = state.fields.description || '';
   }
   function bindFieldInputs(){
     $('f_coreEn').addEventListener('input', function(){ state.fields.coreEn = this.value; persistState(); });
     $('f_coreZh').addEventListener('input', function(){ state.fields.coreZh = this.value; persistState(); });
     $('f_synonyms').addEventListener('input', function(){ state.fields.synonyms = this.value; persistState(); });
+    $('f_description').addEventListener('input', function(){ state.fields.description = this.value; persistState(); });
   }
   function fieldsHasContent(){
     var f = state.fields;
-    return !!(f.coreEn || f.coreZh || f.synonyms);
+    return !!(f.coreEn || f.coreZh || f.synonyms || f.description);
   }
   $('clearBtn').addEventListener('click', function(){
     if(fieldsHasContent() && !confirm('確定要清空目前所有欄位嗎？此動作無法復原。')) return;
@@ -756,7 +764,7 @@
       return;
     }
     var preset = PRESETS[parseInt(idx, 10)];
-    state.fields = {coreEn:preset.coreEn, coreZh:preset.coreZh, synonyms:preset.synonyms};
+    state.fields = {coreEn:preset.coreEn, coreZh:preset.coreZh, synonyms:preset.synonyms, description:preset.description || ''};
     state.activePlatform = preset.platform;
     state.batch1 = []; state.batch2 = [];
     sortState.batch1 = null; sortState.batch2 = null;
@@ -1096,16 +1104,19 @@
 
   /* ---------- AI 熱度評分：單一批次一次呼叫，同時檢查標題合理性（文法/用字是否通順），
      不合理的標題請 AI 直接給出調整後版本，回傳每筆 {index,stars,tier,reason,reasonable,revisedEn,revisedZh} ---------- */
-  function buildScorePrompt(rows, platform, coreKeyword){
+  function buildScorePrompt(rows, platform, coreKeyword, description){
     var list = rows.map(function(r, i){ return {index:i, titleEn:r.en, titleZh:r.zh}; });
     var lines = [];
     lines.push('你是熟悉「' + PLATFORMS[platform].label + '」商品標題慣例的跨境電商顧問。以下 JSON 陣列每筆為 {index, titleEn, titleZh}，titleEn 為英文商品標題（依「規格詞＋功能詞＋形容詞＋核心關鍵詞」組成，部分標題的核心關鍵詞後方可能有括號附加同義詞，例如 "... Green Tea Powder (Matcha Powder)"），titleZh 為對應中文標題。');
     lines.push('這批標題的核心關鍵詞固定是「' + coreKeyword + '」，每一筆 titleEn 都應該包含這個字串（不分大小寫；括號內的同義詞不算，核心關鍵詞本身一定要在括號外出現）。');
+    if(description){
+      lines.push('這項商品的補充說明（賣家提供，判斷是否合理搭配時請以這段內容為準）：' + description);
+    }
     lines.push('請針對每一筆做兩件事：');
     lines.push('1. 評估它在該平台上的關鍵字熱門搜尋程度與吸引力，給予 1~5 的星等（5 最高）與對應分級（5=S,4=A,3=B,2=C,1=D）。');
     lines.push('2. 檢查以下三項，只要有一項不合格，reasonable 就填 false：');
     lines.push('   (a) titleEn 本身是否合理通順——例如文法錯誤、單字重複（同一個字出現兩次）、語意矛盾或搭配奇怪（例如尺寸詞跟包裝詞衝突）；');
-    lines.push('   (b) titleEn 裡的規格詞／功能詞／形容詞，跟核心關鍵詞「' + coreKeyword + '」放在一起是否合理搭配——例如某個功能詞明顯不適用於這項商品（像是把護膚類功能詞用在瑜珈墊、露營用品這類跟護膚無關的商品上），這種語意不搭的組合也算不合理；');
+    lines.push('   (b) titleEn 裡的規格詞／功能詞／形容詞，跟核心關鍵詞「' + coreKeyword + '」' + (description ? '（及上述補充說明）' : '') + '放在一起是否合理搭配——例如某個功能詞明顯不適用於這項商品（像是把護膚類功能詞用在瑜珈墊、露營用品這類跟護膚無關的商品上），這種語意不搭的組合也算不合理；');
     lines.push('   (c) titleZh 是否確實對應 titleEn 的意思（規格／功能／形容詞／核心關鍵詞語意是否一致，不可以牛頭不對馬嘴）。');
     lines.push('3. reasonable 為 false 時，請同時提供 revisedEn 與 revisedZh 兩者，且兩者必須互相對應——即使原本只有一項有問題，也要把沒問題的部分照原意重新給一次，確保修正後彼此語意一致。修正時務必保留核心關鍵詞「' + coreKeyword + '」本身（可以換掉不合理的規格詞／功能詞／形容詞，但不能拿掉或替換核心關鍵詞）。若三項本來就都合格，reasonable 填 true，revisedEn／revisedZh 可省略或留空。');
     lines.push('用不超過 20 字的中文簡短說明理由（若有調整標題，理由請說明調整了什麼）。');
@@ -1123,7 +1134,8 @@
     reportEl.innerHTML = '<div class="ok">呼叫 ' + AI_PROVIDERS[creds.provider].label + '（' + escapeHtml(creds.model) + '）評分並檢查 ' + rows.length + ' 組標題中，請稍候…</div>';
     try{
       var coreKeyword = (state.fields.coreEn || '').trim();
-      var prompt = buildScorePrompt(rows, state.activePlatform, coreKeyword);
+      var description = (state.fields.description || '').trim();
+      var prompt = buildScorePrompt(rows, state.activePlatform, coreKeyword, description);
       var raw = await callLLM(creds.provider, creds.model, creds.apiKey, prompt, function(attempt, status, waitSec){
         reportEl.innerHTML = '<div class="warn">API 回應 ' + status + '（服務商暫時過載／限流），' + waitSec + ' 秒後自動重試（第 ' + attempt + '／2 次）…</div>';
       });
@@ -1221,10 +1233,14 @@
   });
 
   function buildImagePrompt(){
+    var description = (state.fields.description || '').trim();
     var lines = [];
     lines.push('你是熟悉 Alibaba／Amazon 商品標題寫作的跨境電商顧問。請觀察這張商品圖片，判斷這是什麼商品，並給出：');
+    if(description){
+      lines.push('賣家提供的產品說明（請一併參考，讓建議更貼近實際商品，圖片與說明有出入時以圖片實際內容為準）：' + description);
+    }
     lines.push('(1) 2~3 個適合當作商品標題「核心關鍵詞」的英文詞組候選（附中文意思）');
-    lines.push('(2) 3~5 個依圖片內容判斷、適合放進標題的賣點或情境形容詞建議（中英對照，僅供參考，不需要跟特定詞庫一致）');
+    lines.push('(2) 3~5 個依圖片內容' + (description ? '與上述產品說明' : '') + '判斷、適合放進標題的賣點或情境形容詞建議（中英對照，僅供參考，不需要跟特定詞庫一致）');
     lines.push('請只輸出一個 JSON 物件本身，不要使用 markdown 程式碼區塊包裹，不要輸出其他文字，格式為：');
     lines.push('{"coreKeywords":[{"en":"...","zh":"..."}],"suggestions":[{"en":"...","zh":"..."}]}');
     return lines.join('\n');
