@@ -6,9 +6,10 @@
 
 單一 `index.html`：內嵌 CSS/JS、無外部資源、無建置步驟。視覺主題是深色「數據面板」風格（`--bg #0b1220` + 圓點網格背景 + 藍色 `--accent #3b82f6`），與 `ai-image-prompt-studio`（洋紅）、`ai-prompt-generator`（青）、`Prompt`（琥珀）、`ai-music-prompt-studio`（紫）刻意做出區隔。
 
-- **核心資料模型是三組詞庫**（非姊妹專案慣用的「共用欄位＋多分頁組裝格式」模式）：`SPEC_WEIGHT`／`SPEC_COUNT`／`SPEC_SIZE`（規格詞三個子池，依「規格類型」下拉切換）、`FUNCTION_WORDS`（功能詞）、`ADJECTIVE_WORDS`（形容詞）。每筆結構 `{en, zh, tier, platforms?}`：`tier` 是 1~5 的**離線參考熱度分**（人工粗略標註，非真實搜尋數據，UI／警語需明確揭露）；`platforms`（可選）限制該詞只出現在特定平台，用來實作「Amazon 排除主觀宣傳詞／批發用語，Alibaba 開放」的規則——`ADJECTIVE_WORDS` 陣列後半段（Wholesale／Bulk／OEM／Custom Logo／Factory Direct／Hot Sale／Best-Selling／Low MOQ）與 `SPEC_COUNT` 的兩筆（Bulk Lot of 500／MOQ 1000 Units）都標了 `platforms:['alibaba']`；其餘未標 `platforms` 的詞視為兩平台皆可用。新增詞彙時，若屬於 Amazon 官方不建議出現在標題的主觀宣傳詞或 B2B 批發用語，務必加上 `platforms:['alibaba']`，不要漏標。
+- **核心資料模型是三組詞庫**（非姊妹專案慣用的「共用欄位＋多分頁組裝格式」模式）：`SPEC_WEIGHT`／`SPEC_COUNT`／`SPEC_SIZE`（規格詞三個子池，`mergedSpecPool()` 固定合併三池一起抽——**規格類型下拉選單已於 2026-08-16 依使用者要求移除**，若之後想恢復篩選特定子池，改回 `specPoolByType(type)` 這種依參數切換的寫法即可，三個子池陣列本身還在，沒有刪）、`FUNCTION_WORDS`（功能詞）、`ADJECTIVE_WORDS`（形容詞）。每筆結構 `{en, zh, tier, platforms?}`：`tier` 是 1~5 的**離線參考熱度分**（人工粗略標註，非真實搜尋數據，UI／警語需明確揭露）；`platforms`（可選）限制該詞只出現在特定平台，用來實作「Amazon 排除主觀宣傳詞／批發用語，Alibaba 開放」的規則——`ADJECTIVE_WORDS` 陣列後半段（Wholesale／Bulk／OEM／Custom Logo／Factory Direct／Hot Sale／Best-Selling／Low MOQ）與 `SPEC_COUNT` 的兩筆（Bulk Lot of 500／MOQ 1000 Units）都標了 `platforms:['alibaba']`；其餘未標 `platforms` 的詞視為兩平台皆可用。新增詞彙時，若屬於 Amazon 官方不建議出現在標題的主觀宣傳詞或 B2B 批發用語，務必加上 `platforms:['alibaba']`，不要漏標。
 - **標題組裝順序固定**：`[spec.en, func.en, adj.en, titleCase(core)].join(' ')`——四個詞的順序對應「規格詞＋功能詞＋形容詞＋核心關鍵詞」的結構，不要調整順序。`titleCase()` 只套用在核心關鍵詞（使用者輸入的自由文字），規格／功能／形容詞的 `en` 欄位已在資料裡預先寫好正確大小寫（含 `OEM`／`DIY`／`XL` 等縮寫），**不要**對整個標題字串做全域大小寫正規化，否則會破壞這些縮寫的大小寫。
-- **第一批（隨機不重複）vs 第二批（熱度優先＋中英對照）的差異在 `generateBatch()` 的 `weighted` 參數**：第一批 `weighted:false`（均勻隨機 `pickRandom()`），核心關鍵詞池含使用者填的同義詞（`coreVariants(true)`）；第二批 `weighted:true`（依 `tier*tier` 加權隨機 `weightedPick()`，分數越高被抽中機率越高），核心關鍵詞**只用主要關鍵詞**（`coreVariants(false)`，不含同義詞——因為中文標題只有一組中文核心關鍵詞可對應，若英文標題隨機換用同義詞會跟固定的中文核心關鍵詞語意兜不起來，這是刻意簡化，不是遺漏）。第二批固定排除與第一批重複的標題字串（`excludeSet`）。
+- **第一批（隨機不重複）vs 第二批（熱度優先）的差異在 `generateBatch()` 的 `weighted` 參數**：第一批 `weighted:false`（均勻隨機 `pickRandom()`），核心關鍵詞池含使用者填的同義詞（`coreVariants(true)`）；第二批 `weighted:true`（依 `tier*tier` 加權隨機 `weightedPick()`，分數越高被抽中機率越高），核心關鍵詞**只用主要關鍵詞**（`coreVariants(false)`，不含同義詞——因為中文標題只有一組中文核心關鍵詞可對應，若英文標題隨機換用同義詞會跟固定的中文核心關鍵詞語意兜不起來，這是刻意簡化，不是遺漏）。第二批固定排除與第一批重複的標題字串（`excludeSet`）。
+- **兩批都輸出中英對照**（2026-08-16 應使用者要求把原本只有第二批有的中文標題也補進第一批）：`generateBatch()` 內部直接用 `coreZhOrPlaceholder()`（讀 `state.fields.coreZh`，空值時給提示文字）組出 `zh` 欄位，不再由呼叫端事後 `forEach` 補寫，兩批共用同一套組字邏輯，改動時只要修這一處。
 - **去重靠字串比對，不是演算法保證**：`generateBatch()` 內用一個 `seen` 物件記錄已產生的完整標題字串，重複就跳過重抽，最多嘗試 `count*120` 次。詞庫組合空間（過濾平台後仍有數百到上千種組合）遠大於 50，實測不會出現抽不滿的狀況；若未來詞庫大幅精簡導致組合數逼近 50，需注意 `maxAttempts` 是否足夠。
 - **離線星等＝三個詞 tier 的平均值四捨五入**（`Math.round((spec.tier+func.tier+adj.tier)/3)`，夾在 1~5 之間），分級對照表 `STAR_TIER = {5:'S',4:'A',3:'B',2:'C',1:'D'}`。
 - **AI 熱度評分是整批一次呼叫，不是逐筆呼叫**：`buildScorePrompt()` 把整批（最多 50 筆）標題組成 `{index,title}` 的 JSON 陣列塞進單一 prompt，要求模型回傳同樣結構的 `[{index,stars,tier,reason}]`，`runAiScoring()` 用 `parseJsonLoose()`（先剝除可能的 markdown code fence 再 `JSON.parse`）解析後依 `index` 寫回對應列的 `stars`/`tier`/`aiReason`/`aiScored`。**這是刻意的成本/延遲控制設計**——100 組標題若逐筆呼叫會是 100 次 API 請求，改成兩次批次呼叫（每批各一次）。`aiScored:true` 的列在分級標籤旁會多顯示 `🤖` 圖示並把理由放進 `title` 屬性（hover 顯示）。
@@ -16,7 +17,9 @@
 - **`callLLM()` 比姊妹專案多一個可選的 `imageDataUrl` 參數**：有帶圖片時，Claude 走 `content:[{type:'image',source:{type:'base64',media_type,data}},{type:'text',text}]`，OpenAI/OpenRouter 走 `content:[{type:'text',text},{type:'image_url',image_url:{url:dataURL}}]`，Gemini 走 `parts:[{text},{inline_data:{mime_type,data}}]`（`splitDataUrl()` 用 regex 從 `data:image/...;base64,...` 字串拆出 mime/base64）。純文字呼叫（AI 熱度評分）不帶這個參數，行為與姊妹專案的 `callLLM()` 完全一致。圖片分析需要使用者選擇支援視覺輸入的模型（Claude／GPT-4o／Gemini 系列），本工具不做模型能力檢查，呼叫失敗會顯示 API 回傳的錯誤訊息。
 - **CSV 匯出**：`downloadCsvBtn` 合併 `state.batch1`＋`state.batch2` 成一個表格，`csvCell()` 對含逗號/雙引號/換行的欄位做 `""` 轉義並加雙引號包裹，Blob 內容前綴 `'﻿'`（UTF-8 BOM）避免 Excel 開啟中文欄位亂碼——**這是本工具第一次在工作區內實作 CSV 下載**（姊妹專案的「已儲存的提示詞」下載是 `.txt`），之後其他專案若要加 CSV 匯出可直接參照這個 `csvCell()`/BOM 寫法。
 - **平台切換會清空已產生的兩批標題**：`platformTabs` 的 click handler 若偵測到 `state.batch1.length || state.batch2.length` 非空，會先 `confirm()` 再清空——因為不同平台的詞庫過濾結果不同，保留舊資料容易造成「標題與目前平台規則不符」的混淆。
-- 狀態存 `localStorage`（key: `ptgState`）：`{activePlatform, fields:{coreEn,coreZh,synonyms,specType}, batch1:[], batch2:[]}`——兩批標題本身也存進 state（不是只存欄位），重新整理頁面後仍看得到已產生的標題。
+- 狀態存 `localStorage`（key: `ptgState`）：`{activePlatform, fields:{coreEn,coreZh,synonyms}, batch1:[], batch2:[]}`——兩批標題本身也存進 state（不是只存欄位），重新整理頁面後仍看得到已產生的標題。
+- **表格排序（2026-08-16 新增）**：`sortState = {batch1:null, batch2:null}` 是模組層級變數，**刻意不存進 `localStorage`**（排序只是畫面顯示順序，不是資料本身，重新整理頁面應該回到原始順序）。`renderBatchTable(batchKey, rows)` 依 `sortState[batchKey]` 對傳入的 `rows` 做「複製後排序」（`rows.slice().sort(...)`），不會 mutate `state.batch1`/`state.batch2` 本身——CSV 匯出讀的是 `state.batch1`/`state.batch2` 原始順序，不受畫面排序影響。點擊「星等」或「分級」的 `<th class="sortable-th">` 都觸發同一個排序（兩者本來就 1:1 對應，`tier` 永遠是 `STAR_TIER[stars]`），在 `desc`/`asc` 間切換。產生新一批（`genBatch1Btn`/`genBatch2Btn`）或切換平台／套用範例時，對應的 `sortState[batchKey]` 會重置為 `null`。
+- **API 連線設定面板已於 2026-08-16 應使用者要求移到 `<main>` 最上方**（原本在圖片分析面板之後），理由是 AI 熱度評分／圖片分析都依賴這組設定，先填能減少使用者來回捲動；`#apiPanel` 的 DOM 位置改變不影響任何 JS 邏輯（`initAiPanel()`／`callLLM()` 都是用 `id` 選取元素，與版面順序無關）。
 
 ## 序號授權（鎖定整個工具，12 個月）
 
@@ -30,6 +33,14 @@
 ## 頂部共用跑馬燈
 
 `#marqueeBar` 內容抓自工作區既有的共用授權伺服器（`https://script.google.com/macros/s/AKfycbwKX0.../exec`，與 `Prompt`／`ai-prompt-generator`／`ai-image-prompt-studio`／`ai-music-prompt-studio`／`ai-video-studio` 系列共用同一個 Google Sheet），做法完全比照姊妹專案——跟本工具自己的序號授權後端是兩個互不相干的系統。`localStorage` key：`ptgMarquee`。
+
+## 加入主畫面（PWA，2026-08-16 新增）
+
+比照 `ai-image-prompt-studio`／`ai-prompt-generator`／`ai-music-prompt-studio` 的既有做法：`manifest.json`＋`icons/`（藍色 `#3b82f6` 背景「標」字圖示，`icon-192.png`／`icon-512.png`／`apple-touch-icon.png` 皆用 PIL 產生）＋`service-worker.js`（network-first＋同源快取備援，`fetch(req,{cache:'reload'})` 從一開始就寫上，不是事後補的踩坑修正）。頁尾 `.footer-meta` 新增「📲 加入主畫面」按鈕（`#installBtn`），獨立 IIFE，跟序號授權閘門互不相依。
+
+**這次一開始就用「自己實作 `notify()`，不依賴外部 `showToast`」的寫法**（不是像早期姊妹專案那樣先踩坑再修）——因為 PWA 安裝腳本是獨立 `<script>`／獨立 IIFE，主程式的 `showToast()` 宣告在另一個 IIFE 裡，函式作用域不會跨 `<script>` 區塊共享，`typeof showToast` 在安裝腳本裡永遠是 `'undefined'`；`notify()` 直接操作 `#toast` DOM 元素自己實作，是全部姊妹專案 2026-08-16 前已知的系統性 bug 的修正版寫法，日後任何新專案要加類似的「主程式定義工具函式、獨立掛載小功能想沿用」情境，直接照這個寫法（自己拿 DOM 元素、不依賴跨 IIFE 函式），不要重踩。
+
+iOS／iPadOS／macOS Safari 相容性判斷（`isIOSDevice`／`isMacDesktop`／`isSafariEngine`／`isStandalone`）與 `<head>` 的 `apple-touch-icon`／`apple-mobile-web-app-*` meta 標籤，比照姊妹專案逐字複製，未另外調整。本次未實測 Chromium 的 `beforeinstallprompt` 觸發／SW 註冊之外的實機安裝流程（iOS 裝置無法在此環境測試）。
 
 ## Port 分配
 
