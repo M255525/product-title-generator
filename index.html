@@ -156,7 +156,7 @@
   .ai-report .bad{color:var(--red);}
 
   .table-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:8px;margin-top:14px;}
-  table.titles{width:100%;border-collapse:collapse;font-size:12.5px;min-width:860px;}
+  table.titles{width:100%;border-collapse:collapse;font-size:12.5px;min-width:740px;}
   table.titles th{background:var(--bg-alt);color:var(--text-faint);font-family:var(--font-mono);font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
   table.titles th.sortable-th{cursor:pointer;user-select:none;}
   table.titles th.sortable-th:hover{color:var(--accent);}
@@ -164,8 +164,6 @@
   table.titles tr:last-child td{border-bottom:none;}
   table.titles td.en{font-weight:600;}
   table.titles td.zh{color:var(--text-dim);}
-  td.tags span{display:inline-block;font-family:var(--font-mono);font-size:10.5px;background:var(--panel-raised);color:var(--text-faint);border:1px solid var(--line);padding:2px 6px;border-radius:5px;margin:0 3px 3px 0;}
-  td.tags span.tags-na{background:none;border:none;color:var(--text-faint);font-style:italic;padding:0;}
   .stars{color:var(--gold);letter-spacing:1px;white-space:nowrap;}
   .stars .empty{color:var(--line);}
   .tier-badge{font-family:var(--font-mono);font-weight:800;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);}
@@ -281,6 +279,7 @@
       <label for="presetSelect">套用範例</label>
       <select id="presetSelect"><option value="">— 選擇一個情境快速開始 —</option></select>
       <button class="btn ghost" id="clearBtn" type="button">清空欄位</button>
+      <button class="btn ghost" id="clearAllBtn" type="button" title="清空欄位並清除已產生的兩批標題">🗑 清除全部資料</button>
     </div>
 
     <div class="field-grid">
@@ -752,6 +751,28 @@
     renderFieldsFromState();
   });
 
+  $('clearAllBtn').addEventListener('click', function(){
+    var hasAnything = fieldsHasContent() || state.batch1.length || state.batch2.length;
+    if(hasAnything && !confirm('確定要清除全部資料嗎？欄位內容與已產生的兩批標題都會清空，此動作無法復原。')) return;
+    state.fields = defaultFields();
+    state.batch1 = [];
+    state.batch2 = [];
+    sortState.batch1 = null;
+    sortState.batch2 = null;
+    persistState();
+    renderFieldsFromState();
+    renderBatchTable('batch1', []);
+    renderBatchTable('batch2', []);
+    $('batch1Report').innerHTML = '';
+    $('batch2Report').innerHTML = '';
+    currentImageDataUrl = '';
+    var img = $('imagePreview');
+    img.src = ''; img.style.display = 'none';
+    $('imageSuggestions').innerHTML = '';
+    $('imageReport').innerHTML = '';
+    showToast('已清除全部資料');
+  });
+
   function initPresetSelect(){
     $('presetSelect').innerHTML = '<option value="">— 選擇一個情境快速開始 —</option>'
       + PRESETS.map(function(p, i){ return '<option value="' + i + '">' + escapeHtml(p.name) + '</option>'; }).join('');
@@ -950,24 +971,17 @@
     var head = '<tr><th>#</th><th>標題（英）</th><th>標題（中）</th>'
       + '<th class="sortable-th" data-batch="' + batchKey + '">星等' + sortIndicator(dir) + '</th>'
       + '<th class="sortable-th" data-batch="' + batchKey + '">分級' + sortIndicator(dir) + '</th>'
-      + '<th>拆解</th><th>操作</th></tr>';
+      + '<th>操作</th></tr>';
     var body = displayRows.map(function(r, i){
       var reasonTitle = r.aiReason ? ' title="' + escapeHtml(r.aiReason) + '"' : '';
       var adjustedBadge = r.aiAdjusted ? '<br><span class="adj-badge"' + reasonTitle + '>✏️ AI 已調整標題</span>' : '';
       var titleCell = '<td class="en">' + escapeHtml(r.en) + adjustedBadge + (r.overLen ? '<br><span class="over-len">⚠ 超過建議長度</span>' : '') + '</td>';
       var zhCell = '<td class="zh">' + escapeHtml(r.zh) + '</td>';
-      // 拆解一定要反映「目前這個標題」實際包含的字——AI 改寫過英文標題後，原本生成時的
-      // 規格/功能/形容詞會被清空（見 runAiScoring），這裡改顯示中性提示，不要留著可能已經
-      // 不在標題裡的舊拆解字，避免拆解出跟目前標題無關的關鍵字
-      var tagsCell = (r.specEn || r.funcEn || r.adjEn)
-        ? '<td class="tags"><span>' + escapeHtml(r.specEn) + '</span><span>' + escapeHtml(r.funcEn) + '</span><span>' + escapeHtml(r.adjEn) + '</span></td>'
-        : '<td class="tags"><span class="tags-na">（英文標題經 AI 調整，無對應拆解）</span></td>';
       return '<tr>'
         + '<td>' + (i + 1) + '</td>'
         + titleCell + zhCell
         + '<td>' + starsHtml(r.stars) + '</td>'
         + '<td><span class="tier-badge tier-' + r.tier + '"' + reasonTitle + '>' + r.tier + (r.aiScored ? ' 🤖' : '') + '</span></td>'
-        + tagsCell
         + '<td><button type="button" class="regen-btn" data-batch="' + batchKey + '" data-uid="' + r.uid + '" title="不滿意這一組？換一個">🔄 換一個</button></td>'
         + '</tr>';
     }).join('');
@@ -1174,10 +1188,9 @@
           if(enChanged || zhChanged){
             if(enChanged){
               row.en = revisedEn;
-              // 「拆解」欄位顯示的規格/功能/形容詞是原本生成時的三個詞，AI 改寫英文標題後
-              // 這三個詞不保證還完整出現在新標題裡（AI 可能換句話說），繼續顯示會變成
-              // 「拆解出標題裡根本沒有的無關關鍵字」——直接清空，交給 renderBatchTable 顯示
-              // 中性提示，不要留著可能已經對不上新標題的舊拆解字
+              // specEn/funcEn/adjEn 是原本生成時挑的三個詞，AI 改寫英文標題後這三個詞不保證
+              // 還完整出現在新標題裡（AI 可能換句話說）——清空避免 CSV 匯出的規格/功能/形容詞
+              // 欄位顯示跟目前標題無關的舊字（表格本身已不顯示拆解欄位，這裡只影響 CSV）
               row.specEn = ''; row.funcEn = ''; row.adjEn = '';
             }
             if(zhChanged) row.zh = revisedZh;
