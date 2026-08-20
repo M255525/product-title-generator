@@ -46,6 +46,8 @@
 
 `#marqueeBar` 內容抓自工作區既有的共用授權伺服器（`https://script.google.com/macros/s/AKfycbwKX0.../exec`，與 `Prompt`／`ai-prompt-generator`／`ai-image-prompt-studio`／`ai-music-prompt-studio`／`ai-video-studio` 系列共用同一個 Google Sheet），做法完全比照姊妹專案——跟本工具自己的序號授權後端是兩個互不相干的系統。`localStorage` key：`ptgMarquee`。
 
+**2026-08-20 更新（`Code.gs` 未改動、不需重新部署）**：`render()` 新增 `lastKey`（`JSON.stringify(items)`）比對，內容沒變就不重繪，CSS animation 不再被重置歸零重跑；新增 `appendParsedText()`／`buildTrackContent()` 支援 `[文字](https://...)` 連結語法（`createTextNode` 組 DOM，避免 XSS），資料格式仍是純字串陣列，向下相容。已 commit＋push（GitHub Pages 自動重新部署）。
+
 ## 加入主畫面（PWA，2026-08-16 新增）
 
 比照 `ai-image-prompt-studio`／`ai-prompt-generator`／`ai-music-prompt-studio` 的既有做法：`manifest.json`＋`icons/`（藍色 `#3b82f6` 背景「標」字圖示，`icon-192.png`／`icon-512.png`／`apple-touch-icon.png` 皆用 PIL 產生）＋`service-worker.js`（network-first＋同源快取備援，`fetch(req,{cache:'reload'})` 從一開始就寫上，不是事後補的踩坑修正）。頁尾 `.footer-meta` 新增「📲 加入主畫面」按鈕（`#installBtn`），獨立 IIFE，跟序號授權閘門互不相依。
