@@ -300,6 +300,14 @@
       <textarea id="f_description" placeholder="例：日本進口抹茶粉，無添加糖，適合烘焙與沖泡，主要客群為健康取向的烘焙愛好者"></textarea>
       <p class="field-hint">不影響離線產生的標題本身；「🚀 AI 熱度評分」與「🔍 分析圖片建議關鍵字」會參考這裡的內容，判斷得更貼近實際產品。</p>
     </div>
+
+    <div class="field-grid">
+      <div class="field"><label for="idName">姓名（選填，用於下載練習證明）</label><input type="text" id="idName" maxlength="40" placeholder="例如：王小明"></div>
+      <div class="field"><label for="idStudentId">學號（選填）</label><input type="text" id="idStudentId" maxlength="30" placeholder="選填"></div>
+      <div class="field"><label for="idDept">系所（選填）</label><input type="text" id="idDept" maxlength="40" placeholder="選填"></div>
+      <div class="field"><label for="idGroup">組別（選填）</label><input type="text" id="idGroup" maxlength="30" placeholder="選填"></div>
+    </div>
+    <p class="field-hint">以上4個欄位僅用於下方「下載練習證明」圖檔，同樣只存在你自己瀏覽器的 localStorage，不會上傳到任何伺服器；非課程練習用途可不填。</p>
   </section>
 
   <section class="panel" id="batch1Panel">
@@ -352,6 +360,7 @@
     <p class="panel-hint">合併輸出第一批＋第二批共 100 組標題（含星等、分級、規格／功能／形容詞拆解），Excel 開啟不會有中文亂碼。</p>
     <div class="output-actions">
       <button class="btn primary" id="downloadCsvBtn" type="button">⬇ 下載 CSV（100 組）</button>
+      <button class="btn ghost" id="downloadCertBtn" type="button">🎓 下載練習證明（圖檔）</button>
     </div>
   </section>
 
@@ -363,7 +372,7 @@
     <ul>
       <li>本工具產生的「熱門搜尋程度」星等與分級，未串接 AI 前為內建離線參考分數，串接 AI 後為模型的主觀評估——<strong>兩者皆非 Alibaba／Amazon 平台真實即時搜尋數據</strong>，不保證實際上架成效，正式上架前請自行以平台後台工具或人工判斷覆核。</li>
       <li>本工具依公開資訊整理 Amazon／Alibaba 的一般標題慣例（如 Amazon 避免主觀宣傳詞、Alibaba 允許批發／MOQ 用語）供參考，實際規則以各平台當下公告的政策為準，正式刊登前請自行確認。</li>
-      <li>請勿在任何欄位或上傳圖片中包含真實個資、公司機密或受著作權保護的他人內容——欄位資料只存在你自己瀏覽器的 localStorage，不會上傳到任何伺服器，但送出給 AI 服務後的隱私仍由該服務條款規範。</li>
+      <li>請勿在任何欄位或上傳圖片中包含真實個資、公司機密或受著作權保護的他人內容——欄位資料只存在你自己瀏覽器的 localStorage，不會上傳到任何伺服器，但送出給 AI 服務後的隱私仍由該服務條款規範；「姓名／學號／系所／組別」為選填欄位，僅用於你自行下載的練習證明圖檔，同樣只存在你的瀏覽器本機。</li>
       <li>「AI 熱度評分」與「圖片分析」需要你自行填入 API 金鑰，該金鑰只存在你的瀏覽器，按下功能時會直接連線到你選擇的服務商，本工具不會經手或保存金鑰，也不會向你收取任何 API 費用——實際費用依你與該服務商的方案計算。</li>
       <li>AI 產出的評分、關鍵字建議可能有誤；「AI 熱度評分」在判斷標題不合理時會<strong>直接覆蓋修改該筆標題</strong>（表格會標示「✏️ AI 已調整標題」），正式使用前請自行檢查修改後的內容是否符合你的原意，本工具與創作者不對後續實際上架成效負責。</li>
       <li>僅供教學、課程及個人使用，禁止未經授權公開發布、販售或商業化使用。</li>
@@ -1379,6 +1388,101 @@
     URL.revokeObjectURL(url);
     showToast('已下載 CSV（共 ' + (state.batch1.length + state.batch2.length) + ' 列）');
   });
+
+  /* ---------- 身分資料與練習證明（PNG 圖檔，Canvas 繪製） ---------- */
+  var IDENTITY_KEY = 'ptgIdentity';
+  function loadIdentity(){
+    try{ return JSON.parse(localStorage.getItem(IDENTITY_KEY) || '{}'); }catch(e){ return {}; }
+  }
+  function saveIdentity(){
+    var d = { name: $('idName').value, studentId: $('idStudentId').value, dept: $('idDept').value, group: $('idGroup').value };
+    try{ localStorage.setItem(IDENTITY_KEY, JSON.stringify(d)); }catch(e){}
+  }
+  function restoreIdentity(){
+    var d = loadIdentity();
+    $('idName').value = d.name || ''; $('idStudentId').value = d.studentId || '';
+    $('idDept').value = d.dept || ''; $('idGroup').value = d.group || '';
+  }
+  function wrapCanvasText(ctx, text, maxWidth){
+    var lines = [], line = '';
+    for(var i = 0; i < text.length; i++){
+      var test = line + text[i];
+      if(ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = text[i]; }
+      else line = test;
+    }
+    if(line) lines.push(line);
+    return lines;
+  }
+  function downloadPracticeCertificate(){
+    var name = $('idName').value.trim(), sid = $('idStudentId').value.trim();
+    var dept = $('idDept').value.trim(), group = $('idGroup').value.trim();
+    var d = new Date();
+    var dateStr = d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+
+    var W = 1000, H = 700;
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3; ctx.strokeRect(24, 24, W-48, H-48);
+    ctx.strokeStyle = 'rgba(59,130,246,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(34, 34, W-68, H-68);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#3b82f6';
+    ctx.font = 'bold 20px "Microsoft JhengHei", sans-serif';
+    ctx.fillText('PRACTICE CERTIFICATE', W/2, 90);
+    ctx.fillStyle = '#e8edf8';
+    ctx.font = 'bold 34px "Microsoft JhengHei", sans-serif';
+    ctx.fillText('練習證明', W/2, 138);
+    ctx.font = '18px "Microsoft JhengHei", sans-serif';
+    ctx.fillStyle = '#a6b4d4';
+    ctx.fillText('跨境商品標題產生器', W/2, 170);
+
+    ctx.strokeStyle = 'rgba(59,130,246,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(120, 196); ctx.lineTo(W-120, 196); ctx.stroke();
+
+    var y = 246, lineH = 40;
+    ctx.font = '20px "Microsoft JhengHei", sans-serif';
+    function row(label, value){
+      ctx.textAlign = 'right'; ctx.fillStyle = '#6c7ba3';
+      ctx.fillText(label, W/2 - 16, y);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#e8edf8';
+      ctx.fillText(value || '（未填寫）', W/2, y);
+      y += lineH;
+    }
+    row('姓名：', name); row('學號：', sid); row('系所：', dept); row('組別：', group);
+
+    y += 14;
+    ctx.textAlign = 'center';
+    ctx.font = '16px "Microsoft JhengHei", sans-serif';
+    ctx.fillStyle = '#6c7ba3';
+    var count = state.batch1.length + state.batch2.length;
+    var core = (state.fields.coreEn || '未命名商品');
+    var summary = '已完成「' + core + '」共 ' + count + ' 組跨境商品標題產出練習';
+    wrapCanvasText(ctx, summary, W-200).forEach(function(ln){ ctx.fillText(ln, W/2, y); y += 26; });
+    y += 8;
+    ctx.fillText('產出日期：' + dateStr, W/2, y);
+
+    ctx.font = '12px "Microsoft JhengHei", sans-serif';
+    ctx.fillStyle = '#5a6580';
+    ctx.fillText('本證明由使用者自行下載，僅供課程練習存證使用，非官方發行文件', W/2, H-50);
+    ctx.fillText('跨境商品標題產生器 · Mark Tsai', W/2, H-30);
+
+    canvas.toBlob(function(blob){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var stamp = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+      a.href = url; a.download = '練習證明_' + (name || '未填寫姓名') + '_' + stamp + '.png';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+  ['idName','idStudentId','idDept','idGroup'].forEach(function(id){
+    $(id).addEventListener('input', saveIdentity);
+  });
+  $('downloadCertBtn').addEventListener('click', downloadPracticeCertificate);
+  restoreIdentity();
 
   /* ---------- 初始化 ---------- */
   bindFieldInputs();
