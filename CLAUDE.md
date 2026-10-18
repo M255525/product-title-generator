@@ -42,6 +42,10 @@
 - **這支後端只做序號驗證，不代理任何付費 API**（LLM 串接是 BYOK），也**不處理跑馬燈**。
 - **部署踩坑**：clasp 沒有指令能把新腳本綁定到一個「已存在」的 Sheet——`clasp create --type sheets --parentId <既有SheetId>` 會把 `parentId` 當成 Drive 資料夾 id，平白新建一份空白試算表（已用 Drive MCP `trash_file` 清掉），**之後要幫其他專案接既有 Sheet 的 Apps Script，一律請使用者自己開 Extensions→Apps Script 建立綁定專案，把 Script ID 給 Claude 做 `clasp clone`/`push --force`**。使用者一開始手動複製貼上 Code.gs 到編輯器出現「Unexpected token 'finally'」（已知剪貼簿踩坑），改走 clasp 推送後，使用者瀏覽器分頁需要手動重新整理（F5）才會看到新內容，不會自動同步。第一次部署「誰可以存取」沒選對「任何人」，`curl -sI` 回 403、`curl -sL` 被導去 Google 登入頁；改對設定後重新部署會拿到**新的** `/exec` 網址（不是原本那組）。之後序號驗證連不上／一直失敗的報修，先檢查部署的存取權限設定，不要預設是程式碼問題。
 
+## 深色／淺色背景切換（2026-10-18 新增）
+
+topbar「☀️ 淺色／🌙 深色」按鈕（`#themeToggle`）切換 `html[data-theme="light"]`，預設仍是深色。淺色主題只在 `</style>` 前用 `html[data-theme="light"]{...}` 覆寫 `:root` 色票變數（accent 改深一階 `#2563eb` 確保白底對比），外加少數寫死深色值的覆寫（`#licenseGate` 遮罩、body 背景紋路、`.btn.primary`/`.btn.teal` 文字改白、`.ai-report .warn`）。偏好存 localStorage `ptGenTheme`，`<head>` 內聯小 script 在繪製前就套用，避免重新整理時閃一下深色。練習證明 Canvas 圖檔刻意不跟主題，固定深色證書版面。manual.html 未加切換。
+
 ## 頂部共用跑馬燈
 
 `#marqueeBar` 內容抓自工作區既有的共用授權伺服器（`https://script.google.com/macros/s/AKfycbwKX0.../exec`，與 `Prompt`／`ai-prompt-generator`／`ai-image-prompt-studio`／`ai-music-prompt-studio`／`ai-video-studio` 系列共用同一個 Google Sheet），做法完全比照姊妹專案——跟本工具自己的序號授權後端是兩個互不相干的系統。`localStorage` key：`ptgMarquee`。

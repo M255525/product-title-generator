@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="標題產生器">
+<script>/* 主題需在繪製前套用，避免閃一下深色 */try{if(localStorage.getItem('ptGenTheme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 <style>
   :root{
     --bg:#0b1220;
@@ -214,6 +215,36 @@
     table.titles{font-size:11.5px;}
     .regen-btn{min-height:38px;padding:8px 12px;}
   }
+  .theme-toggle{font-family:var(--font-mono);font-size:13px;color:var(--text-dim);background:transparent;border:1px solid var(--line);padding:7px 12px;border-radius:6px;cursor:pointer;transition:.15s;}
+  .theme-toggle:hover{color:var(--accent);border-color:var(--accent);}
+
+  /* ---------- 淺色背景主題（右上角切換，localStorage 記憶） ---------- */
+  html[data-theme="light"]{
+    --bg:#f5f8fd;
+    --bg-alt:#eaf0fa;
+    --panel:#ffffff;
+    --panel-raised:#f1f5fc;
+    --line:#c9d6ec;
+    --line-soft:#dde6f4;
+    --text:#0f1b33;
+    --text-dim:#44557a;
+    --text-faint:#6b7a99;
+    --accent:#2563eb;
+    --accent-soft:rgba(37,99,235,0.10);
+    --accent-glow:rgba(37,99,235,0.35);
+    --teal:#0d9488;
+    --teal-soft:rgba(13,148,136,0.12);
+    --gold:#d97706;
+    --gold-soft:rgba(217,119,6,0.12);
+    --red:#dc2626;
+    color-scheme:light;
+  }
+  html[data-theme="light"] body{background-image:radial-gradient(circle at 1px 1px, rgba(37,99,235,0.12) 1px, transparent 0);}
+  html[data-theme="light"] .btn.primary,
+  html[data-theme="light"] .btn.primary:hover{color:#fff;}
+  html[data-theme="light"] .btn.teal{color:#fff;}
+  html[data-theme="light"] .ai-report .warn{color:#a16207;}
+  html[data-theme="light"] #licenseGate{background:rgba(245,248,253,.96)}
 </style>
 </head>
 <body>
@@ -237,6 +268,7 @@
   <div class="brand"><span class="dot"></span><strong>跨境商品標題產生器</strong></div>
   <div style="display:flex;align-items:center;gap:10px;">
     <span id="licenseBadge" class="license-badge" style="display:none;"></span>
+    <button type="button" class="theme-toggle" id="themeToggle" title="切換深色／淺色背景">☀️ 淺色</button>
     <nav><a href="manual.html">操作手冊</a></nav>
   </div>
 </div>
@@ -1496,5 +1528,25 @@
 })();
 </script>
 
+<script>
+/* ---------- 深色／淺色背景切換 ---------- */
+(function(){
+  var KEY = 'ptGenTheme';
+  var root = document.documentElement;
+  var btn = document.getElementById('themeToggle');
+  function sync(){
+    var light = root.getAttribute('data-theme') === 'light';
+    btn.textContent = light ? '🌙 深色' : '☀️ 淺色';
+    btn.setAttribute('aria-pressed', light ? 'true' : 'false');
+  }
+  btn.addEventListener('click', function(){
+    var light = root.getAttribute('data-theme') !== 'light';
+    if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+    try { localStorage.setItem(KEY, light ? 'light' : 'dark'); } catch(e){}
+    sync();
+  });
+  sync();
+})();
+</script>
 </body>
 </html>
