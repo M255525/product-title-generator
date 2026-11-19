@@ -1,4 +1,4 @@
-var CACHE_NAME = 'ptg-cache-v1';
+var CACHE_NAME = 'ptg-cache-v2';
 var CORE_ASSETS = ['./', './index.html', './manual.html'];
 
 self.addEventListener('install', function (event) {
@@ -13,7 +13,7 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
-      return Promise.all(keys.filter(function (k) { return k !== CACHE_NAME; }).map(function (k) { return caches.delete(k); }));
+      return Promise.all(keys.filter(function (k) { return k !== CACHE_NAME && k.indexOf(CACHE_NAME.replace(/\d+$/, '')) === 0; }).map(function (k) { return caches.delete(k); }));
     })
   );
   self.clients.claim();
